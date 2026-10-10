@@ -18,7 +18,7 @@
     "display": {
       "type": "string",
       "title": "Cómo mostrar el estado",
-      "description": "panel (por defecto): fila con borde sobre el prompt. status: línea de estado del mod, en texto plano.",
+      "description": "Vista inicial: panel (por defecto), fila con borde sobre el prompt; status, línea de estado del mod en texto plano. Lo que elijas con /cache-watch se guarda entre sesiones y manda sobre esta opción.",
       "options": ["panel", "status"],
       "default": "panel"
     }

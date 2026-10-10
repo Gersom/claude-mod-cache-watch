@@ -377,3 +377,251 @@ test('the status line is cleared when the session ends', { options: { display: '
   expect(lines.at(-1)).toBeUndefined()
   expect(lines.length).toBeGreaterThan(1)
 })
+
+/** Runs `/cache-watch` with the arguments the person typed after it (none: ""); resolves its answer. */
+const cacheWatch = ($: any, args = '') => $.command.run({ command: 'cache-watch', args })
+
+/**
+ * A `$.store` in memory that the test can look into: `mock.store` answers the same way but keeps its entries to itself.
+ * Starts with `saved`, what an earlier session left.
+ */
+const memory = (on: any, saved: Record<string, unknown> = {}) => {
+  const entries = new Map(Object.entries(saved))
+
+  on('store.get', (_: unknown, e: { key: string }) => ({ value: entries.get(e.key) }))
+  on('store.set', (_: unknown, e: { key: string; value: unknown }) => {
+    entries.set(e.key, e.value)
+
+    return { value: undefined }
+  })
+
+  return entries
+}
+
+test('/cache-watch registers the command when the session starts', async ($, on) => {
+  const specs: unknown[] = []
+
+  on('settings.read', spanish)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('command.register', (_: unknown, e: unknown) => {
+    specs.push(e)
+
+    return { value: { command: 'cache-watch' } } as never
+  })
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+
+  expect(specs).toEqual([
+    {
+      name: 'cache-watch',
+      description: 'Cambia la vista del caché entre el panel y la barra de estado.',
+      argumentHint: '[panel|status]'
+    }
+  ])
+})
+
+/** The bottom a `/cache-watch` test stands on: Spanish settings, the session's measure, a clock, an empty (or given) store. */
+const base = (on: any, saved?: Record<string, unknown>) => {
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($: unknown, e: { changed: unknown }) => ({ changed: e.changed }))
+
+  return { entries: memory(on, saved), clock: mock.clock(on, { now: Date.now() }) }
+}
+
+test('/cache-watch with no argument alternates between panel and status', async ($, on) => {
+  const lines = watchStatus(on)
+
+  base(on)
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  // Panel to begin with: the row, no line.
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(texts(lines)).toEqual([])
+
+  expect(await cacheWatch($)).toEqual({ text: 'Caché: vista barra de estado' })
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+
+  expect(await cacheWatch($)).toEqual({ text: 'Caché: vista panel' })
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(lines.at(-1)).toBeUndefined()
+
+  expect(await cacheWatch($, '   ')).toEqual({ text: 'Caché: vista barra de estado' })
+  await ui.unmount()
+})
+
+test('/cache-watch panel and /cache-watch status pick one, and picking it again changes nothing', async ($, on) => {
+  const lines = watchStatus(on)
+
+  base(on)
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  expect(await cacheWatch($, 'status')).toEqual({ text: 'Caché: vista barra de estado' })
+  expect(await cacheWatch($, 'status')).toEqual({ text: 'Caché: vista barra de estado' })
+  expect(texts(lines)).toEqual(['◆ Caché  🔥 Caliente · se enfría en 1:00:00'])
+
+  expect(await cacheWatch($, 'PANEL')).toEqual({ text: 'Caché: vista panel' })
+  expect(await cacheWatch($, ' panel ')).toEqual({ text: 'Caché: vista panel' })
+  expect(lines.at(-1)).toBeUndefined()
+})
+
+test('/cache-watch with an argument it does not know changes nothing and says the usage', async ($, on) => {
+  const lines = watchStatus(on)
+  const { entries } = base(on)
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+  const usage = { text: 'Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.' }
+
+  expect(await cacheWatch($, 'bar')).toEqual(usage)
+  expect(await cacheWatch($, 'status panel')).toEqual(usage)
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(texts(lines)).toEqual([])
+  expect(entries.has('display')).toBe(false)
+
+  // And in status it stays there.
+  await cacheWatch($, 'status')
+  expect(await cacheWatch($, 'nope')).toEqual(usage)
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(entries.get('display')).toBe('status')
+  await ui.unmount()
+})
+
+test('/cache-watch answers in English when the settings name no language', async ($, on) => {
+  on('ui.render', () => engineBand)
+  memory(on)
+  mock.clock(on, { now: Date.now() })
+
+  expect(await cacheWatch($, 'status')).toEqual({ text: 'Cache: status bar view' })
+  expect(await cacheWatch($, 'panel')).toEqual({ text: 'Cache: panel view' })
+  expect(await cacheWatch($, 'x')).toEqual({ text: 'Usage: /cache-watch [panel|status]. With no argument, it switches the view.' })
+})
+
+test('the switch sets and clears the status line at once, and the text comes back after a clear', async ($, on) => {
+  const lines = watchStatus(on)
+  const { clock } = base(on)
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+  await clock.advance(12 * MIN + 48_000)
+
+  await cacheWatch($, 'status')
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 47:12')
+
+  await cacheWatch($, 'panel')
+  expect(lines.at(-1)).toBeUndefined()
+
+  // Same second, same text: it must reappear, not be taken for already shown.
+  await cacheWatch($, 'status')
+  expect(lines.slice(-3)).toEqual([
+    '◆ Caché  🔥 Caliente · se enfría en 47:12',
+    undefined,
+    '◆ Caché  🔥 Caliente · se enfría en 47:12'
+  ])
+
+  // The countdown goes on in status, and stops showing once back in panel.
+  await clock.advance(MIN)
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 46:12')
+
+  await cacheWatch($, 'panel')
+  await clock.advance(MIN)
+  expect(lines.at(-1)).toBeUndefined()
+})
+
+test('the switch to status once cold sets the cold text at once', async ($, on) => {
+  const lines = watchStatus(on)
+  const { clock } = base(on)
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+  await clock.advance(61 * MIN)
+  await cacheWatch($, 'status')
+
+  expect(lines.at(-1)).toBe('◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens')
+})
+
+test('the switch before the first response draws and sets nothing', async ($, on) => {
+  const lines = watchStatus(on)
+
+  base(on)
+  await cacheWatch($, 'status')
+  expect(texts(lines)).toEqual([])
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+})
+
+test('the chosen view is saved, and a new session starts from it', async ($, on) => {
+  const { entries } = base(on)
+
+  expect(entries.has('display')).toBe(false)
+
+  await cacheWatch($, 'status')
+  expect(entries.get('display')).toBe('status')
+
+  await cacheWatch($)
+  expect(entries.get('display')).toBe('panel')
+
+  await cacheWatch($)
+  expect(entries.get('display')).toBe('status')
+})
+
+// A new session is a new test whose store holds what the last one saved.
+test('a new session restores the saved view over the option: status over panel', async ($, on) => {
+  const lines = watchStatus(on)
+
+  base(on, { display: 'status' })
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+
+  // The first `/cache-watch` alternates from what was restored.
+  expect(await cacheWatch($)).toEqual({ text: 'Caché: vista panel' })
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a new session restores the saved view over the option: panel over status', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  base(on, { display: 'panel' })
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(texts(lines)).toEqual([])
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('with nothing saved the display option rules', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+  const { entries } = base(on)
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+
+  // The first alternation goes from the option's view.
+  expect(await cacheWatch($)).toEqual({ text: 'Caché: vista panel' })
+  expect(entries.get('display')).toBe('panel')
+  await ui.unmount()
+})
+
+test('a saved value this mod does not know is ignored: the option rules', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  base(on, { display: 'status-ansi' })
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+})

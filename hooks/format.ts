@@ -39,9 +39,15 @@ export type Display = 'panel' | 'status'
 
 export const DISPLAYS: Display[] = ['panel', 'status']
 
+/** The display a value names (the option's, a saved one, a command's argument); `undefined` when it names none this mod knows. */
+export const knownDisplay = (value: unknown): Display | undefined =>
+  DISPLAYS.find(display => display === value)
+
 /** The display for the `display` option's value; the panel when it names none this mod knows. */
-export const displayOf = (value: unknown): Display =>
-  DISPLAYS.find(display => display === value) ?? 'panel'
+export const displayOf = (value: unknown): Display => knownDisplay(value) ?? 'panel'
+
+/** The other display: what `/cache-watch` with no argument switches to. */
+export const otherDisplay = (display: Display): Display => (display === 'panel' ? 'status' : 'panel')
 
 /** Time left on the cache, in ms: from the last request, never more than the TTL nor less than zero. */
 export const remaining = (lastAt: number, now: number, ttlMs: number) =>

@@ -5,7 +5,9 @@ import {
   compactTokens,
   countdown,
   displayOf,
+  knownDisplay,
   levelOf,
+  otherDisplay,
   remaining,
   statusOf,
   statusParts,
@@ -107,6 +109,22 @@ describe('displayOf', () => {
 
   test('the panel for a removed mode someone may still have saved', () => {
     expect(displayOf('status-ansi')).toBe('panel')
+  })
+})
+
+describe('knownDisplay and otherDisplay', () => {
+  test('the display a value names, or none', () => {
+    expect(knownDisplay('panel')).toBe('panel')
+    expect(knownDisplay('status')).toBe('status')
+    expect(knownDisplay('')).toBeUndefined()
+    expect(knownDisplay('Panel')).toBeUndefined()
+    expect(knownDisplay(undefined)).toBeUndefined()
+    expect(knownDisplay(1)).toBeUndefined()
+  })
+
+  test('the other one', () => {
+    expect(otherDisplay('panel')).toBe('status')
+    expect(otherDisplay('status')).toBe('panel')
   })
 })
 

@@ -18,7 +18,8 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 - **Frío:** `⛄ Frío · la próxima petición reescribirá ~84k tokens`, en azul claro. La cifra son los tokens del contexto (`context.tokens`) de la última medición, abreviados (`k`, `M`); si no se conocen, se omite y queda «la próxima petición reescribirá la conversación».
 - Solo cuentan las peticiones del hilo principal. La actividad de un subagente no renueva el caché y no mueve la cuenta.
 - Cede ante una encuesta (`hasSurvey`), igual que usage-meter.
-- Sin consumo de tokens: solo observa eventos y dibuja.
+- Dos vistas, que se cambian en vivo con `/cache-watch` (ver «Comando `/cache-watch`»): la fila con borde sobre el prompt (`panel`) o la línea de estado del mod (`status`).
+- Casi sin consumo de tokens: observa eventos, dibuja, y solo el comando deja una línea corta en la conversación (ver «Consumo de tokens»).
 
 ## Diseño
 
@@ -62,16 +63,42 @@ El TTL se elige en la configuración del mod (`/config`, o `pluginConfigs` en lo
 
 **Limitación:** el motor no expone a los hooks de plugin ni el TTL real del caché ni la hora de la última respuesta del servidor. Por eso el TTL sale de esta opción y hay que ponerlo a mano según el plan. La hora de la última petición se toma del propio mod, con el reloj de la sesión, en tres momentos del hilo principal: al enviar cada petición (`turn.step`), al medir la sesión (`session.measure`) y al terminar el turno (`turn.complete`). Es una estimación: no ve un caché que el servidor haya vaciado antes de tiempo ni peticiones hechas fuera de esta sesión. Se reinicia al terminar la sesión (`session.end`, también con `/clear`).
 
-## Opción `display`
+## Vistas y opción `display`
 
-Cómo se muestra el estado. Se elige en la configuración del mod (`/config`, o `pluginConfigs` en los ajustes):
+El estado se muestra en una de dos vistas:
 
 - `panel` (por defecto): la fila con borde sobre el prompt, descrita en «Diseño».
 - `status`: no dibuja la fila; fija la línea de estado del mod (`$.ui.status`, una por plugin, bajo el prompt) con texto plano y el mismo contenido: `◆ Caché  🔥 Caliente · se enfría en 47:12` o `◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens`, en el idioma del panel.
 
-En `status` la línea se actualiza con el mismo temporizador de 1 s que la cuenta, y se borra al terminar la sesión. No se fija antes de la primera respuesta. En `panel` no se fija nada (al arrancar se borra una línea que haya dejado otro modo tras una recarga). La línea de estado no cede ante una encuesta (`hasSurvey`), que solo afecta a la fila.
+La opción `display` (`/config`, o `pluginConfigs` en los ajustes) es solo la **vista inicial por defecto**: la que rige mientras no hayas elegido otra con `/cache-watch`. Qué vista rige al arrancar, por prioridad:
 
-Se probó un tercer modo con colores ANSI y se descartó: la línea de estado de los mods es texto plano y no admite colores. Un valor guardado que ya no existe (como ese) cae a `panel`.
+1. La que guardó el comando `/cache-watch` (entre sesiones).
+2. La opción `display`.
+3. `panel`.
+
+Por eso, si ya elegiste una vista con el comando, cambiar la opción `display` no la altera: vuelve a mandar la opción solo si no hay nada guardado. Para volver a ella, elige con el comando la vista que quieras.
+
+En `status` la línea se actualiza con el mismo temporizador de 1 s que la cuenta, y se borra al terminar la sesión. No se fija antes de la primera respuesta. En `panel` no se fija nada (al arrancar se borra una línea que haya dejado otra vista tras una recarga). La línea de estado no cede ante una encuesta (`hasSurvey`), que solo afecta a la fila.
+
+Se probó un tercer modo con colores ANSI y se descartó: la línea de estado de los mods es texto plano y no admite colores. Un valor guardado que ya no existe (como ese) se ignora y rige la opción; un valor de la opción que ya no existe cae a `panel`.
+
+## Comando `/cache-watch`
+
+Cambia de vista en vivo, sin recargar el mod:
+
+| Comando | Efecto |
+|---|---|
+| `/cache-watch` | alterna entre `panel` y `status` |
+| `/cache-watch panel` | elige el panel |
+| `/cache-watch status` | elige la línea de estado |
+| `/cache-watch <otra cosa>` | no cambia nada y responde con el uso |
+
+- **Al instante:** al pasar a `panel` se borra la línea de estado y aparece la fila; al pasar a `status` la fila deja de dibujarse y la línea se fija en ese momento, sin esperar al siguiente tic del temporizador. Antes de la primera respuesta de la sesión no hay nada que mostrar en ninguna de las dos.
+- **Respuesta:** una línea corta en el idioma del panel (español o inglés, ver «Idioma»): `Caché: vista panel` / `Caché: vista barra de estado`, o `Cache: panel view` / `Cache: status bar view`. Con un argumento desconocido: `Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.`
+- **Solo comandos:** el panel no lleva botones; la vista se cambia únicamente con el comando.
+- **Se recuerda entre sesiones:** la última vista elegida se guarda en `$.store` (el almacén propio del mod, un JSON bajo el directorio de configuración de Claude Code, clave `display`) y se restaura al arrancar, por encima de la opción `display` (ver «Vistas y opción `display`»). Si el almacén no se puede escribir, la vista cambia igual en la sesión pero no se recuerda. Un valor guardado que el mod no reconoce se ignora.
+- **Cómo se aplica:** la vista vigente vive en un estado de la sesión (`$.state`, clave `display`). El hook `ui.render` lo lee, así que un cambio redibuja la franja solo: en `status` no dibuja nada y deja pasar lo de los demás (`next(e)`); en `panel` dibuja la fila. La línea de estado se fija o se borra al mismo tiempo.
+- El comando se registra al empezar la sesión (`session.start`), con su descripción en el idioma del panel, y se atiende con un hook `command.run`.
 
 ## Idioma
 
@@ -79,7 +106,7 @@ El panel habla español o inglés, con diccionarios fijos en `hooks/i18n.ts`: ni
 
 - **Automático:** lee `settings.language` (`$.settings.read()`) la primera vez que hay una medición, un turno completo o el inicio de la sesión. Es texto libre, así que reconoce el español en varias formas (`Español`, `spanish`, `es`, `es-MX`, `castellano`, sin importar mayúsculas ni tildes).
 - **Por defecto, inglés:** si no hay `settings.language`, no se puede leer o nombra un idioma que el panel no tiene, va en inglés.
-- No hay botón para cambiarlo a mano.
+- No hay botón ni comando para cambiarlo a mano. Los textos del comando `/cache-watch` van en el mismo idioma.
 - **Agregar otro idioma:** un diccionario más en `TEXTS` (`hooks/i18n.ts`), su código en `Lang` (`types/index.d.ts`) y cómo se reconoce en `detectLang`.
 
 Los diagramas de este README están en español.
@@ -87,14 +114,17 @@ Los diagramas de este README están en español.
 ## Tipo y fuente de datos
 
 - **Tipo:** hook (plugin de Claude Code).
-- **Eventos:** `turn.step` (cada petición del modelo; solo la del hilo principal, sin `agentId`), `session.measure` (entrega `context.tokens`), `turn.complete`, `session.start` y `session.end`.
+- **Eventos:** `turn.step` (cada petición del modelo; solo la del hilo principal, sin `agentId`), `session.measure` (entrega `context.tokens`), `turn.complete`, `session.start` y `session.end`; `command.run` para `/cache-watch`.
+- **Comando y almacén:** `$.command.register` (al empezar la sesión) y `$.store` (`get`/`set` de la clave `display`).
 - **Reloj:** `$.clock.now()` para la hora de la última petición y `$.clock.every(1000, …)` para refrescar la cuenta. El temporizador corre solo mientras el caché está caliente y se detiene al enfriarse; una recarga del mod lo descarta.
 - **Idioma:** `$.settings.read()`, clave `language`.
-- **Dibujo:** hook `ui.render` sobre `AbovePrompt` (modo `panel`) o `$.ui.status` (modo `status`).
+- **Dibujo:** hook `ui.render` sobre `AbovePrompt` (vista `panel`) o `$.ui.status` (vista `status`).
 
 ## Consumo de tokens
 
-El mod no consume tokens del modelo ni agrega nada al contexto: el manifiesto no declara skills, agentes, comandos ni servidores MCP, y los hooks solo observan (devuelven `next(e)` sin modificar el evento).
+El mod no llama al modelo ni agrega nada al contexto por su cuenta: el manifiesto no declara skills, agentes, comandos ni servidores MCP, y los hooks de eventos solo observan (devuelven `next(e)` sin modificar el evento).
+
+La única excepción es la respuesta de `/cache-watch`: es una línea corta que queda en la conversación como salida del comando, y el modelo la lee con el siguiente mensaje (unos pocos tokens, solo cuando tú ejecutas el comando).
 
 ## Fuera de alcance
 
@@ -117,7 +147,7 @@ O en dos pasos:
 /plugin install cache-watch@cache-watch
 ```
 
-La instalación pide el valor de `ttl` (`1h` o `5m`) y el de `display` (`panel` o `status`).
+La instalación pide el valor de `ttl` (`1h` o `5m`) y el de `display` (`panel` o `status`), que es la vista inicial por defecto; después se cambia en vivo con `/cache-watch`.
 
 **En la app de escritorio:**
 
@@ -155,11 +185,11 @@ cache-watch/
 │   └── marketplace.json         # marketplace de un solo plugin (instalación suelta)
 ├── hooks/
 │   ├── hooks.json               # apunta a register.tsx
-│   ├── register.tsx             # hooks: session.start, session.measure, turn.step, turn.complete, session.end, ui.render
-│   ├── i18n.ts                  # textos en español e inglés y detección del idioma
-│   ├── format.ts                # lógica pura: estado caliente/frío, restante, cuenta regresiva, color, tokens, texto de la línea de estado
+│   ├── register.tsx             # hooks: session.start, command.run, session.measure, turn.step, turn.complete, session.end, ui.render
+│   ├── i18n.ts                  # textos en español e inglés (también los del comando) y detección del idioma
+│   ├── format.ts                # lógica pura: estado caliente/frío, restante, cuenta regresiva, color, tokens, texto de la línea de estado, vistas
 │   └── *.test.ts                # tests (lógica y render)
-└── types/index.d.ts             # contrato del estado ($.state): lastAt, tokens, now y lang
+└── types/index.d.ts             # contrato del estado ($.state): lastAt, tokens, now, lang y display
 ```
 
 ## Limitaciones conocidas
@@ -167,4 +197,4 @@ cache-watch/
 - El TTL es una opción, no un dato del motor (ver «Opción `ttl`»); si no coincide con el del plan, la cuenta no coincidirá con el caché real.
 - **Orden con usage-meter:** desde usage-meter 1.0.x (commit `feat(T-13)`) ambos mods piden primero lo que dibujan los demás (`next(e)`) y se apilan, con cache-watch siempre arriba y usage-meter debajo, sin importar cuál quede primero en la cadena. Con una versión anterior de usage-meter, que no llama a `next(e)`, su recuadro puede tapar la fila de cache-watch: actualiza usage-meter.
 - Con la franja muy baja (`maxRows` pequeño) el motor desplaza las últimas filas fuera de vista; la de cache-watch va al final.
-- Los tests no cubren el pintado real (colores, bordes) sino la lógica y los hooks bajo cada superficie. Del modo `status` verifican el texto que se pasa a `$.ui.status`, no cómo lo dibuja el motor.
+- Los tests no cubren el pintado real (colores, bordes) sino la lógica y los hooks bajo cada superficie. De la vista `status` verifican el texto que se pasa a `$.ui.status`, no cómo lo dibuja el motor; del comando, su respuesta, lo que se guarda en un `$.store` en memoria y la línea de estado, no la entrada real del prompt.

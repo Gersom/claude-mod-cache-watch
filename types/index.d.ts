@@ -11,6 +11,8 @@ declare module 'claude-code' {
       now: number
       /** Idioma del panel, de settings.language; null hasta leerlo. */
       lang: Lang | null
+      /** Vista elegida con `/cache-watch` (o la guardada entre sesiones); null mientras no hay ninguna: manda la opción `display`. */
+      display: 'panel' | 'status' | null
     }
   }
 }

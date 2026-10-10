@@ -41,4 +41,21 @@ describe('texts', () => {
     expect(es.rewrite(null)).not.toMatch(/~|tokens/)
     expect(en.rewrite(null)).not.toMatch(/~|tokens/)
   })
+
+  test('the command says which view it left, in the language of the panel', () => {
+    expect(es.viewIs('panel')).toBe('Caché: vista panel')
+    expect(es.viewIs('status')).toBe('Caché: vista barra de estado')
+    expect(en.viewIs('panel')).toBe('Cache: panel view')
+    expect(en.viewIs('status')).toBe('Cache: status bar view')
+  })
+
+  test('the command has a description and a usage in each language, naming both views', () => {
+    for (const t of [es, en]) {
+      expect(t.commandDescription).not.toBe('')
+      expect(t.usage).toContain('/cache-watch [panel|status]')
+    }
+
+    expect(es.usage).not.toBe(en.usage)
+    expect(es.commandDescription).not.toBe(en.commandDescription)
+  })
 })

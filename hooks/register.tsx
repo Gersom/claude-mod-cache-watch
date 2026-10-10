@@ -10,6 +10,8 @@ import {
   compactTokens,
   countdown,
   displayOf,
+  knownDisplay,
+  otherDisplay,
   statusOf,
   statusParts,
   statusText,
@@ -19,11 +21,15 @@ import { DEFAULT_LANG, detectLang, textsOf } from './i18n'
 
 const BORDER_COLOR = '#4b5563'
 const TICK_MS = 1000
+/** The key of `$.store` that keeps the view `/cache-watch` chose, between sessions. */
+const STORE_KEY = 'display'
 
 const lastAt = atom({ plugin: 'cache-watch', key: 'lastAt' } as const, null as number | null)
 const tokens = atom({ plugin: 'cache-watch', key: 'tokens' } as const, null as number | null)
 const now = atom({ plugin: 'cache-watch', key: 'now' } as const, 0)
 const langMode = atom({ plugin: 'cache-watch', key: 'lang' } as const, null as Lang | null)
+/** The view chosen with `/cache-watch` (or restored from the store); `null` while none: the `display` option rules. */
+const chosen = atom({ plugin: 'cache-watch', key: 'display' } as const, null as Display | null)
 
 /** Settles the panel's language the first time: from settings.language, or the default when the settings do not say. */
 const ensureLang = async ($: EngineInterface) => {
@@ -38,6 +44,33 @@ const ensureLang = async ($: EngineInterface) => {
   }
 
   await update($, langMode, current => current ?? detectLang(language))
+}
+
+/** The one restore of the saved view per load of the module (a reload starts it over); shared, so no event reads the view before it ends. */
+let restoring: Promise<void> | null = null
+
+/** Puts the view saved by `/cache-watch` in `$.store` into the atom, unless it already holds one; a store that cannot be read leaves the option to rule. */
+const ensureView = ($: EngineInterface) => {
+  restoring ??= (async () => {
+    let saved: Display | undefined
+
+    try {
+      saved = knownDisplay(await $.store.get(STORE_KEY))
+    } catch {
+      // No store to read: the option's view.
+    }
+
+    if (saved !== undefined) await update($, chosen, current => current ?? saved)
+  })()
+
+  return restoring
+}
+
+/** The view now: what the command chose or the store kept, else the `display` option's (`initial`). */
+const viewOf = async ($: EngineInterface, initial: Display) => {
+  await ensureView($)
+
+  return (await read($, chosen)) ?? initial
 }
 
 /** Whether what another hook drew has nothing to show: no text, no border, nothing inside. */
@@ -69,9 +102,9 @@ const setStatus = ($: EngineInterface, text: string | undefined) => {
   $.ui.status(text)
 }
 
-/** The status line follows the display: the cache's text in `status`, no line at all in `panel`. */
-const refreshStatus = async ($: EngineInterface, ttlMs: number, display: Display) => {
-  if (display === 'panel') return setStatus($, undefined)
+/** The status line follows the view: the cache's text in `status`, no line at all in `panel`. `initial` is the option's view. */
+const refreshStatus = async ($: EngineInterface, ttlMs: number, initial: Display) => {
+  if ((await viewOf($, initial)) === 'panel') return setStatus($, undefined)
 
   await ensureLang($)
 
@@ -85,7 +118,7 @@ const refreshStatus = async ($: EngineInterface, ttlMs: number, display: Display
   setStatus($, statusText(statusParts(status, t, await read($, tokens))))
 }
 
-const start = ($: EngineInterface, ttlMs: number, display: Display) => {
+const start = ($: EngineInterface, ttlMs: number, initial: Display) => {
   if (ticker !== null) return
 
   ticker = $.clock.every(TICK_MS, async () => {
@@ -93,7 +126,7 @@ const start = ($: EngineInterface, ttlMs: number, display: Display) => {
     const time = await $.clock.now()
 
     await update($, now, () => time)
-    await refreshStatus($, ttlMs, display)
+    await refreshStatus($, ttlMs, initial)
 
     // Cold: nothing left to count down until the next request starts the timer again.
     if (at === null || statusOf(at, time, ttlMs)?.kind !== 'hot') stop()
@@ -101,25 +134,62 @@ const start = ($: EngineInterface, ttlMs: number, display: Display) => {
 }
 
 /** A request of the main thread renews the cache: its time starts over now. */
-const touch = async ($: EngineInterface, ttlMs: number, display: Display) => {
+const touch = async ($: EngineInterface, ttlMs: number, initial: Display) => {
   const time = await $.clock.now()
 
+  // The saved view first, so the first row is never drawn in the wrong one.
+  await ensureView($)
   await update($, lastAt, () => time)
   await update($, now, () => time)
-  await refreshStatus($, ttlMs, display)
-  start($, ttlMs, display)
+  await refreshStatus($, ttlMs, initial)
+  start($, ttlMs, initial)
 }
 
 export const register: Register = (on, options) => {
   const ttlMs = ttlOf(options.ttl)
-  const display = displayOf(options.display)
+  // The view when nothing was chosen with `/cache-watch`: the option's.
+  const initial = displayOf(options.display)
 
   on('session.start', async ($, e, next) => {
     await ensureLang($)
     // In `panel` this clears a line a previous mode (before a reload) may have left.
-    await refreshStatus($, ttlMs, display)
+    await refreshStatus($, ttlMs, initial)
+
+    await $.command.register({
+      name: 'cache-watch',
+      description: textsOf((await read($, langMode)) ?? DEFAULT_LANG).commandDescription,
+      argumentHint: '[panel|status]'
+    })
 
     return next(e)
+  })
+
+  // `/cache-watch` switches the view; with no argument it alternates, with `panel` or `status` it picks one.
+  on('command.run', { command: 'cache-watch' }, async ($, e) => {
+    await ensureLang($)
+
+    const t = textsOf((await read($, langMode)) ?? DEFAULT_LANG)
+    const arg = e.args.trim().toLowerCase()
+    const asked = knownDisplay(arg)
+
+    if (arg !== '' && asked === undefined) return { text: t.usage }
+
+    const view = asked ?? otherDisplay(await viewOf($, initial))
+    const time = await $.clock.now()
+
+    await update($, chosen, () => view)
+
+    try {
+      await $.store.set(STORE_KEY, view)
+    } catch {
+      // Not saved: the view still changes for this session.
+    }
+
+    // The line shows (or goes) at once, with the time as it is now, not as the last tick left it.
+    await update($, now, () => time)
+    await refreshStatus($, ttlMs, initial)
+
+    return { text: t.viewIs(view) }
   })
 
   on('session.measure', async ($, e, next) => {
@@ -127,13 +197,13 @@ export const register: Register = (on, options) => {
 
     if (e.context.tokens !== undefined) await update($, tokens, () => e.context.tokens ?? null)
 
-    await touch($, ttlMs, display)
+    await touch($, ttlMs, initial)
 
     return next(e)
   })
 
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId === undefined) await touch($, ttlMs, display)
+    if (e.agentId === undefined) await touch($, ttlMs, initial)
 
     return yield* next(e)
   })
@@ -141,7 +211,7 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     await ensureLang($)
 
-    if (e.agentId === undefined) await touch($, ttlMs, display)
+    if (e.agentId === undefined) await touch($, ttlMs, initial)
 
     return next(e)
   })
@@ -156,8 +226,8 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    // The `status` mode draws nothing here: the line is the mod's status.
-    if (display !== 'panel') return next(e)
+    // The `status` view draws nothing here: the line is the mod's status. The atom is read while drawing, so a switch redraws.
+    if (((await read($, chosen)) ?? initial) !== 'panel') return next(e)
 
     // What other hooks draw in the band (usage-meter's) stays; this row goes above it.
     const below = await next(e)

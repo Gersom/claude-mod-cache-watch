@@ -10,6 +10,12 @@ export type Texts = {
   coolsIn: string
   /** `la próxima petición reescribirá ~84k tokens`; without the figure when the tokens are not known. */
   rewrite: (tokens: string | null) => string
+  /** The one line the typeahead shows for `/cache-watch`. */
+  commandDescription: string
+  /** `Caché: vista panel` (`Cache: panel view`): what `/cache-watch` answers once the view is the display's. */
+  viewIs: (display: 'panel' | 'status') => string
+  /** What `/cache-watch` answers to an argument it does not know. */
+  usage: string
 }
 
 /** The language the panel speaks when settings.language names none it knows. */
@@ -25,7 +31,10 @@ export const TEXTS: Record<Lang, Texts> = {
     rewrite: tokens =>
       tokens === null
         ? 'la próxima petición reescribirá la conversación'
-        : `la próxima petición reescribirá ~${tokens} tokens`
+        : `la próxima petición reescribirá ~${tokens} tokens`,
+    commandDescription: 'Cambia la vista del caché entre el panel y la barra de estado.',
+    viewIs: display => `Caché: vista ${display === 'panel' ? 'panel' : 'barra de estado'}`,
+    usage: 'Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.'
   },
   en: {
     lang: 'en',
@@ -36,7 +45,10 @@ export const TEXTS: Record<Lang, Texts> = {
     rewrite: tokens =>
       tokens === null
         ? 'the next request will rewrite the conversation'
-        : `the next request will rewrite ~${tokens} tokens`
+        : `the next request will rewrite ~${tokens} tokens`,
+    commandDescription: 'Switch the cache view between the panel and the status bar.',
+    viewIs: display => `Cache: ${display === 'panel' ? 'panel' : 'status bar'} view`,
+    usage: 'Usage: /cache-watch [panel|status]. With no argument, it switches the view.'
   }
 }
 
