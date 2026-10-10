@@ -243,3 +243,169 @@ test('lives beside another hook of the band: keeps what is below and adds its ro
   expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
   await ui.unmount()
 })
+
+/** Observes `$.ui.status`: every text (or `undefined`, the clear) the mod sets, in order. */
+const watchStatus = (on: any) => {
+  const lines: (string | undefined)[] = []
+
+  on('ui.status', (_: unknown, e: { text: string | undefined }) => {
+    lines.push(e.text)
+
+    return { value: undefined }
+  })
+
+  return lines
+}
+
+/** The texts the mod set, without the clears. */
+const texts = (lines: (string | undefined)[]) => lines.filter(line => line !== undefined)
+
+test('panel mode never sets the status line, and clears one left behind', async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(texts(lines)).toEqual([])
+  // Cleared at most once (the start of the module), never repeated.
+  expect(lines.length).toBeLessThanOrEqual(1)
+  await ui.unmount()
+})
+
+test('status mode sets plain text and draws no row', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(texts(lines).at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(texts(lines).at(-1)).not.toContain('\x1b')
+  expect(await ui.find({ type: 'Text', text: /Caché/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('status mode follows the countdown, then goes cold', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+
+  const clock = mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+  await clock.advance(12 * MIN + 48_000)
+
+  expect(texts(lines).at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 47:12')
+
+  await clock.advance(47 * MIN + 12_000)
+
+  expect(texts(lines).at(-1)).toBe('◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens')
+  expect(texts(lines).at(-1)).toContain('Frío')
+
+  // Cold: the timer stops and the line stays as it is.
+  const settled = lines.length
+
+  await clock.advance(5 * MIN)
+
+  expect(lines.length).toBe(settled)
+})
+
+test('status mode does not repeat a text that did not change', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  expect(texts(lines)).toEqual(['◆ Caché  🔥 Caliente · se enfría en 1:00:00'])
+})
+
+test('status mode says nothing before the first response', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('settings.read', spanish)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+
+  expect(texts(lines)).toEqual([])
+})
+
+test('status mode speaks English when the settings name no language', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  expect(texts(lines).at(-1)).toBe('◆ Cache  🔥 Hot · cools in 1:00:00')
+})
+
+test('status-ansi mode sets the colored text and draws no row', { options: { display: 'status-ansi' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+
+  const clock = mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+  const hot = texts(lines).at(-1) ?? ''
+
+  expect(hot).toContain('\x1b[')
+  expect(hot).toContain('\x1b[38;2;251;146;60m◆')
+  expect(hot).toContain('Caliente')
+  expect(hot).toContain('1:00:00')
+  expect(hot.endsWith('\x1b[0m')).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /Caché/ })).toBeUndefined()
+
+  await clock.advance(61 * MIN)
+
+  const cold = texts(lines).at(-1) ?? ''
+
+  expect(cold).toContain('\x1b[')
+  expect(cold).toContain('Frío')
+  expect(cold).toContain('~84k tokens')
+  await ui.unmount()
+})
+
+test('the status line is cleared when the session ends', { options: { display: 'status' } }, async ($, on) => {
+  const lines = watchStatus(on)
+
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  expect(lines.at(-1)).toContain('Caliente')
+
+  await $.session.end({ reason: 'other', sessionId: 's', resume: { id: 's' } })
+
+  expect(lines.at(-1)).toBeUndefined()
+  expect(lines.length).toBeGreaterThan(1)
+})

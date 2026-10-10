@@ -14,6 +14,13 @@
       "description": "Cuánto dura el caché de prompts desde la última petición: 1h (por defecto) o 5m.",
       "options": ["1h", "5m"],
       "default": "1h"
+    },
+    "display": {
+      "type": "string",
+      "title": "Cómo mostrar el estado",
+      "description": "panel (por defecto): fila con borde sobre el prompt. status: línea de estado del mod, en texto plano. status-ansi: igual, con colores ANSI (depende de que el motor los dibuje).",
+      "options": ["panel", "status", "status-ansi"],
+      "default": "panel"
     }
   }
 }

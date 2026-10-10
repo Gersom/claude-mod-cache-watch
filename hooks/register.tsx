@@ -2,7 +2,19 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderNode } from 'claude-code'
 
 import type { Lang } from '../types'
-import { ACCENT, COLORS, EMOJI, compactTokens, countdown, statusOf, ttlOf } from './format'
+import type { Display } from './format'
+import {
+  ACCENT,
+  COLORS,
+  EMOJI,
+  compactTokens,
+  countdown,
+  displayOf,
+  statusOf,
+  statusParts,
+  statusText,
+  ttlOf
+} from './format'
 import { DEFAULT_LANG, detectLang, textsOf } from './i18n'
 
 const BORDER_COLOR = '#4b5563'
@@ -46,7 +58,34 @@ const stop = () => {
   ticker = null
 }
 
-const start = ($: EngineInterface, ttlMs: number) => {
+/** The last text handed to `$.ui.status`: `null` until the module has set it (or cleared it) once, as a reload leaves a line behind. */
+let pushed: string | undefined | null = null
+
+/** Sets the status line, or clears it with `undefined`; nothing is sent when it already says that. */
+const setStatus = ($: EngineInterface, text: string | undefined) => {
+  if (text === pushed) return
+
+  pushed = text
+  $.ui.status(text)
+}
+
+/** The status line follows the display: the cache's text in the `status*` modes, no line at all in `panel`. */
+const refreshStatus = async ($: EngineInterface, ttlMs: number, display: Display) => {
+  if (display === 'panel') return setStatus($, undefined)
+
+  await ensureLang($)
+
+  const at = await read($, lastAt)
+  const status = at === null ? null : statusOf(at, await read($, now), ttlMs)
+
+  if (status === null) return setStatus($, undefined)
+
+  const t = textsOf((await read($, langMode)) ?? DEFAULT_LANG)
+
+  setStatus($, statusText(statusParts(status, t, await read($, tokens)), display === 'status-ansi'))
+}
+
+const start = ($: EngineInterface, ttlMs: number, display: Display) => {
   if (ticker !== null) return
 
   ticker = $.clock.every(TICK_MS, async () => {
@@ -54,6 +93,7 @@ const start = ($: EngineInterface, ttlMs: number) => {
     const time = await $.clock.now()
 
     await update($, now, () => time)
+    await refreshStatus($, ttlMs, display)
 
     // Cold: nothing left to count down until the next request starts the timer again.
     if (at === null || statusOf(at, time, ttlMs)?.kind !== 'hot') stop()
@@ -61,19 +101,23 @@ const start = ($: EngineInterface, ttlMs: number) => {
 }
 
 /** A request of the main thread renews the cache: its time starts over now. */
-const touch = async ($: EngineInterface, ttlMs: number) => {
+const touch = async ($: EngineInterface, ttlMs: number, display: Display) => {
   const time = await $.clock.now()
 
   await update($, lastAt, () => time)
   await update($, now, () => time)
-  start($, ttlMs)
+  await refreshStatus($, ttlMs, display)
+  start($, ttlMs, display)
 }
 
 export const register: Register = (on, options) => {
   const ttlMs = ttlOf(options.ttl)
+  const display = displayOf(options.display)
 
   on('session.start', async ($, e, next) => {
     await ensureLang($)
+    // In `panel` this clears a line a previous mode (before a reload) may have left.
+    await refreshStatus($, ttlMs, display)
 
     return next(e)
   })
@@ -83,13 +127,13 @@ export const register: Register = (on, options) => {
 
     if (e.context.tokens !== undefined) await update($, tokens, () => e.context.tokens ?? null)
 
-    await touch($, ttlMs)
+    await touch($, ttlMs, display)
 
     return next(e)
   })
 
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId === undefined) await touch($, ttlMs)
+    if (e.agentId === undefined) await touch($, ttlMs, display)
 
     return yield* next(e)
   })
@@ -97,7 +141,7 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     await ensureLang($)
 
-    if (e.agentId === undefined) await touch($, ttlMs)
+    if (e.agentId === undefined) await touch($, ttlMs, display)
 
     return next(e)
   })
@@ -106,11 +150,15 @@ export const register: Register = (on, options) => {
     stop()
     await update($, lastAt, () => null)
     await update($, tokens, () => null)
+    setStatus($, undefined)
 
     return next(e)
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // The `status*` modes draw nothing here: the line is the mod's status.
+    if (display !== 'panel') return next(e)
+
     // What other hooks draw in the band (usage-meter's) stays; this row goes above it.
     const below = await next(e)
     const at = await read($, lastAt)

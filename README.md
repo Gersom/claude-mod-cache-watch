@@ -62,6 +62,21 @@ El TTL se elige en la configuración del mod (`/config`, o `pluginConfigs` en lo
 
 **Limitación:** el motor no expone a los hooks de plugin ni el TTL real del caché ni la hora de la última respuesta del servidor. Por eso el TTL sale de esta opción y hay que ponerlo a mano según el plan. La hora de la última petición se toma del propio mod, con el reloj de la sesión, en tres momentos del hilo principal: al enviar cada petición (`turn.step`), al medir la sesión (`session.measure`) y al terminar el turno (`turn.complete`). Es una estimación: no ve un caché que el servidor haya vaciado antes de tiempo ni peticiones hechas fuera de esta sesión. Se reinicia al terminar la sesión (`session.end`, también con `/clear`).
 
+## Opción `display`
+
+Cómo se muestra el estado. Se elige en la configuración del mod (`/config`, o `pluginConfigs` en los ajustes):
+
+- `panel` (por defecto): la fila con borde sobre el prompt, descrita en «Diseño».
+- `status`: no dibuja la fila; fija la línea de estado del mod (`$.ui.status`, una por plugin, bajo el prompt) con texto plano y el mismo contenido: `◆ Caché  🔥 Caliente · se enfría en 47:12` o `◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens`, en el idioma del panel.
+- `status-ansi`: igual que `status`, con secuencias ANSI de 24 bits que colorean como el panel: rombo naranja, «Caliente»/«Frío» y la cuenta con el color del nivel, y el texto secundario atenuado.
+
+En los modos `status*` la línea se actualiza con el mismo temporizador de 1 s que la cuenta, y se borra al terminar la sesión. No se fija antes de la primera respuesta. En `panel` no se fija nada (al arrancar se borra una línea que haya dejado otro modo tras una recarga). La línea de estado no cede ante una encuesta (`hasSurvey`), que solo afecta a la fila.
+
+**Advertencias:**
+
+- `status-ansi` depende de que el motor dibuje los códigos ANSI de `$.ui.status`; **no está verificado**. Si los escapa o los quita, se verá texto con secuencias raras o sin color: usar `status`.
+- Los tres modos son **temporales**: es una prueba para que el operador elija uno y deje solo ese.
+
 ## Idioma
 
 El panel habla español o inglés, con diccionarios fijos en `hooks/i18n.ts`: ningún agente traduce nada, no hay llamadas a modelos y no consume tokens.
@@ -79,7 +94,7 @@ Los diagramas de este README están en español.
 - **Eventos:** `turn.step` (cada petición del modelo; solo la del hilo principal, sin `agentId`), `session.measure` (entrega `context.tokens`), `turn.complete`, `session.start` y `session.end`.
 - **Reloj:** `$.clock.now()` para la hora de la última petición y `$.clock.every(1000, …)` para refrescar la cuenta. El temporizador corre solo mientras el caché está caliente y se detiene al enfriarse; una recarga del mod lo descarta.
 - **Idioma:** `$.settings.read()`, clave `language`.
-- **Dibujo:** hook `ui.render` sobre `AbovePrompt`.
+- **Dibujo:** hook `ui.render` sobre `AbovePrompt` (modo `panel`) o `$.ui.status` (modos `status*`).
 
 ## Consumo de tokens
 
@@ -106,7 +121,7 @@ O en dos pasos:
 /plugin install cache-watch@cache-watch
 ```
 
-La instalación pide el valor de `ttl` (`1h` o `5m`).
+La instalación pide el valor de `ttl` (`1h` o `5m`) y el de `display` (`panel`, `status` o `status-ansi`).
 
 **En la app de escritorio:**
 
@@ -140,13 +155,13 @@ claude plugin test .
 cache-watch/
 ├── LICENSE                      # licencia MIT
 ├── .claude-plugin/
-│   ├── plugin.json              # manifiesto del plugin (incluye la opción ttl)
+│   ├── plugin.json              # manifiesto del plugin (incluye las opciones ttl y display)
 │   └── marketplace.json         # marketplace de un solo plugin (instalación suelta)
 ├── hooks/
 │   ├── hooks.json               # apunta a register.tsx
 │   ├── register.tsx             # hooks: session.start, session.measure, turn.step, turn.complete, session.end, ui.render
 │   ├── i18n.ts                  # textos en español e inglés y detección del idioma
-│   ├── format.ts                # lógica pura: estado caliente/frío, restante, cuenta regresiva, color, tokens
+│   ├── format.ts                # lógica pura: estado caliente/frío, restante, cuenta regresiva, color, tokens, texto de la línea de estado
 │   └── *.test.ts                # tests (lógica y render)
 └── types/index.d.ts             # contrato del estado ($.state): lastAt, tokens, now y lang
 ```
@@ -156,4 +171,4 @@ cache-watch/
 - El TTL es una opción, no un dato del motor (ver «Opción `ttl`»); si no coincide con el del plan, la cuenta no coincidirá con el caché real.
 - **Orden con usage-meter:** desde usage-meter 1.0.x (commit `feat(T-13)`) ambos mods piden primero lo que dibujan los demás (`next(e)`) y se apilan, con cache-watch siempre arriba y usage-meter debajo, sin importar cuál quede primero en la cadena. Con una versión anterior de usage-meter, que no llama a `next(e)`, su recuadro puede tapar la fila de cache-watch: actualiza usage-meter.
 - Con la franja muy baja (`maxRows` pequeño) el motor desplaza las últimas filas fuera de vista; la de cache-watch va al final.
-- Los tests no cubren el pintado real (colores, bordes) sino la lógica y los hooks bajo cada superficie.
+- Los tests no cubren el pintado real (colores, bordes) sino la lógica y los hooks bajo cada superficie. Del modo `status*` verifican el texto que se pasa a `$.ui.status`, no cómo lo dibuja el motor.

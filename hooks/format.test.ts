@@ -1,6 +1,22 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { TTL_MS, compactTokens, countdown, levelOf, remaining, statusOf, ttlOf } from './format'
+import {
+  ACCENT,
+  COLORS,
+  TTL_MS,
+  ansiColor,
+  compactTokens,
+  countdown,
+  displayOf,
+  hexToRgb,
+  levelOf,
+  remaining,
+  statusOf,
+  statusParts,
+  statusText,
+  ttlOf
+} from './format'
+import { textsOf } from './i18n'
 
 const HOUR = 3_600_000
 const MIN = 60_000
@@ -81,5 +97,100 @@ describe('compactTokens', () => {
     expect(compactTokens(84_400)).toBe('84.4k')
     expect(compactTokens(1_000_000)).toBe('1M')
     expect(compactTokens(2_500_000)).toBe('2.5M')
+  })
+})
+
+describe('displayOf', () => {
+  test('panel, status and status-ansi, and the panel for anything else', () => {
+    expect(displayOf('panel')).toBe('panel')
+    expect(displayOf('status')).toBe('status')
+    expect(displayOf('status-ansi')).toBe('status-ansi')
+    expect(displayOf(undefined)).toBe('panel')
+    expect(displayOf('bar')).toBe('panel')
+    expect(displayOf(1)).toBe('panel')
+  })
+})
+
+describe('hexToRgb and ansiColor', () => {
+  test('a six-digit hex color as red, green and blue', () => {
+    expect(hexToRgb('#fb923c')).toEqual([251, 146, 60])
+    expect(hexToRgb('#ffffff')).toEqual([255, 255, 255])
+    expect(hexToRgb('#000000')).toEqual([0, 0, 0])
+    expect(hexToRgb('A5F3FC')).toEqual([165, 243, 252])
+  })
+
+  test('white when the text is not a six-digit hex color', () => {
+    expect(hexToRgb('')).toEqual([255, 255, 255])
+    expect(hexToRgb('#fff')).toEqual([255, 255, 255])
+    expect(hexToRgb('#gggggg')).toEqual([255, 255, 255])
+  })
+
+  test('the 24-bit foreground sequence', () => {
+    expect(ansiColor('#fb923c')).toBe('\x1b[38;2;251;146;60m')
+    expect(ansiColor(COLORS.cold)).toBe('\x1b[38;2;147;197;253m')
+  })
+})
+
+describe('statusParts and statusText', () => {
+  const es = textsOf('es')
+  const en = textsOf('en')
+  const hot = { kind: 'hot' as const, leftMs: 47 * MIN + 12_000, level: 'orange' as const }
+  const strip = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, '')
+
+  test('hot: the word and the countdown take the color of the level', () => {
+    expect(statusParts(hot, es, 84_000)).toEqual({
+      label: 'Caché',
+      emoji: '🔥',
+      word: 'Caliente',
+      color: COLORS.orange,
+      note: 'se enfría en',
+      value: '47:12'
+    })
+  })
+
+  test('cold: the rewrite note with the tokens, or without them when they are not known', () => {
+    expect(statusParts({ kind: 'cold' }, es, 84_000)).toEqual({
+      label: 'Caché',
+      emoji: '⛄',
+      word: 'Frío',
+      color: COLORS.cold,
+      note: 'la próxima petición reescribirá ~84k tokens'
+    })
+    expect(statusParts({ kind: 'cold' }, es, null).note).toBe('la próxima petición reescribirá la conversación')
+  })
+
+  test('plain text, one line, no escape', () => {
+    expect(statusText(statusParts(hot, es, null), false)).toBe('◆ Caché  🔥 Caliente · se enfría en 47:12')
+    expect(statusText(statusParts({ kind: 'cold' }, es, 84_000), false)).toBe(
+      '◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens'
+    )
+    expect(statusText(statusParts(hot, en, null), false)).toBe('◆ Cache  🔥 Hot · cools in 47:12')
+    expect(statusText(statusParts(hot, es, null), false)).not.toContain('\x1b')
+    expect(statusText(statusParts(hot, es, null), false)).not.toContain('\n')
+  })
+
+  test('ANSI: orange diamond, word and countdown in the level color, the note dimmed', () => {
+    const orange = ansiColor(ACCENT)
+    const text = statusText(statusParts(hot, es, null), true)
+
+    expect(text).toBe(
+      `${orange}◆\x1b[0m Caché  🔥 ${orange}Caliente\x1b[0m\x1b[2m · se enfría en\x1b[0m ${orange}47:12\x1b[0m`
+    )
+    expect(text).not.toContain('\n')
+  })
+
+  test('ANSI: cold has the cold color on the word and no countdown', () => {
+    const text = statusText(statusParts({ kind: 'cold' }, es, 84_000), true)
+
+    expect(text).toContain(`${ansiColor(COLORS.cold)}Frío\x1b[0m`)
+    expect(text).toContain('\x1b[2m · la próxima petición reescribirá ~84k tokens\x1b[0m')
+  })
+
+  test('ANSI says the same words as the plain text', () => {
+    for (const status of [hot, { kind: 'cold' as const }]) {
+      const parts = statusParts(status, es, 84_000)
+
+      expect(strip(statusText(parts, true))).toBe(statusText(parts, false))
+    }
   })
 })
