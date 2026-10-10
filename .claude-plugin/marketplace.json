@@ -1,0 +1,12 @@
+{
+  "name": "cache-watch",
+  "owner": { "name": "Gersom" },
+  "metadata": { "description": "Marketplace de un solo plugin: cache-watch." },
+  "plugins": [
+    {
+      "name": "cache-watch",
+      "source": "./",
+      "description": "Franja sobre el prompt que dice si el caché de prompts está caliente o frío, con cuenta regresiva."
+    }
+  ]
+}

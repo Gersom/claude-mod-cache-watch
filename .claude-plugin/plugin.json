@@ -1,0 +1,19 @@
+{
+  "name": "cache-watch",
+  "version": "1.0.0",
+  "author": { "name": "Gersom" },
+  "description": "Franja sobre el prompt que dice si el caché de prompts de la sesión está caliente o frío, con cuenta regresiva hasta que se enfríe.",
+  "license": "MIT",
+  "repository": "https://github.com/Gersom/claude-mod-cache-watch",
+  "homepage": "https://github.com/Gersom/claude-mod-cache-watch",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "ttl": {
+      "type": "string",
+      "title": "TTL del caché",
+      "description": "Cuánto dura el caché de prompts desde la última petición: 1h (por defecto) o 5m.",
+      "options": ["1h", "5m"],
+      "default": "1h"
+    }
+  }
+}
