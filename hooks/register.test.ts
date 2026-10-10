@@ -292,7 +292,6 @@ test('status mode sets plain text and draws no row', { options: { display: 'stat
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
   expect(texts(lines).at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
-  expect(texts(lines).at(-1)).not.toContain('\x1b')
   expect(await ui.find({ type: 'Text', text: /Caché/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
   await ui.unmount()
@@ -359,37 +358,6 @@ test('status mode speaks English when the settings name no language', { options:
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
 
   expect(texts(lines).at(-1)).toBe('◆ Cache  🔥 Hot · cools in 1:00:00')
-})
-
-test('status-ansi mode sets the colored text and draws no row', { options: { display: 'status-ansi' } }, async ($, on) => {
-  const lines = watchStatus(on)
-
-  on('ui.render', () => engineBand)
-  on('settings.read', spanish)
-  on('session.measure', ($, e) => ({ changed: e.changed }))
-
-  const clock = mock.clock(on, { now: Date.now() })
-
-  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
-
-  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
-  const hot = texts(lines).at(-1) ?? ''
-
-  expect(hot).toContain('\x1b[')
-  expect(hot).toContain('\x1b[38;2;251;146;60m◆')
-  expect(hot).toContain('Caliente')
-  expect(hot).toContain('1:00:00')
-  expect(hot.endsWith('\x1b[0m')).toBe(true)
-  expect(await ui.find({ type: 'Text', text: /Caché/ })).toBeUndefined()
-
-  await clock.advance(61 * MIN)
-
-  const cold = texts(lines).at(-1) ?? ''
-
-  expect(cold).toContain('\x1b[')
-  expect(cold).toContain('Frío')
-  expect(cold).toContain('~84k tokens')
-  await ui.unmount()
 })
 
 test('the status line is cleared when the session ends', { options: { display: 'status' } }, async ($, on) => {

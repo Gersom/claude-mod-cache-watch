@@ -34,35 +34,14 @@ export const COLORS = {
 /** The emoji of a level: fire while it is red or orange, sun at yellow or white, snowflake about to cool, snowman once cold. */
 export const EMOJI = { red: '🔥', orange: '🔥', yellow: '☀️', white: '☀️', ice: '❄️', cold: '⛄' }
 
-/** How the cache is shown: the framed row above the prompt, or the mod's status line (plain, or with ANSI colors). */
-export type Display = 'panel' | 'status' | 'status-ansi'
+/** How the cache is shown: the framed row above the prompt, or the mod's status line (plain text). */
+export type Display = 'panel' | 'status'
 
-export const DISPLAYS: Display[] = ['panel', 'status', 'status-ansi']
+export const DISPLAYS: Display[] = ['panel', 'status']
 
 /** The display for the `display` option's value; the panel when it names none this mod knows. */
 export const displayOf = (value: unknown): Display =>
   DISPLAYS.find(display => display === value) ?? 'panel'
-
-/** `#fb923c` as its red, green and blue (0-255); white when the text is not a six-digit hex color. */
-export const hexToRgb = (hex: string): [number, number, number] => {
-  const match = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex)
-
-  if (match === null) return [255, 255, 255]
-
-  const [, red = 'ff', green = 'ff', blue = 'ff'] = match
-
-  return [parseInt(red, 16), parseInt(green, 16), parseInt(blue, 16)]
-}
-
-const RESET = '\x1b[0m'
-const DIM = '\x1b[2m'
-
-/** The 24-bit foreground SGR sequence for a hex color. */
-export const ansiColor = (hex: string) => {
-  const [r, g, b] = hexToRgb(hex)
-
-  return `\x1b[38;2;${r};${g};${b}m`
-}
 
 /** Time left on the cache, in ms: from the last request, never more than the TTL nor less than zero. */
 export const remaining = (lastAt: number, now: number, ttlMs: number) =>
@@ -105,17 +84,15 @@ export const compactTokens = (tokens: number) => {
   return String(Math.max(0, Math.round(tokens)))
 }
 
-/** What the status line says, piece by piece: the same words and colors as the panel's row. */
+/** What the status line says, piece by piece: the same words as the panel's row. */
 export type StatusParts = {
   label: string
   emoji: string
-  /** `Caliente` / `Frío`, in the color of the level. */
+  /** `Caliente` / `Frío`. */
   word: string
-  /** The hex color of the word and the value. */
-  color: string
-  /** The dimmed text after the word: `se enfría en`, or what the next request will rewrite. */
+  /** The text after the word: `se enfría en`, or what the next request will rewrite. */
   note: string
-  /** The countdown, in the level's color; none once cold. */
+  /** The countdown; none once cold. */
   value?: string
 }
 
@@ -126,7 +103,6 @@ export const statusParts = (status: Status, t: Texts, known: number | null): Sta
         label: t.label,
         emoji: EMOJI[status.level],
         word: t.hot,
-        color: COLORS[status.level],
         note: t.coolsIn,
         value: countdown(status.leftMs)
       }
@@ -134,21 +110,12 @@ export const statusParts = (status: Status, t: Texts, known: number | null): Sta
         label: t.label,
         emoji: EMOJI.cold,
         word: t.cold,
-        color: COLORS.cold,
         note: t.rewrite(known === null ? null : compactTokens(known))
       }
 
-/**
- * The status line: `◆ Caché  🔥 Caliente · se enfría en 47:12`. With `ansi`, the diamond, the word and the
- * value take their colors (24-bit SGR) and the note is dimmed; without it, plain text and no escape at all.
- */
-export const statusText = (parts: StatusParts, ansi: boolean) => {
-  const { label, emoji, word, color, note, value } = parts
+/** The status line, in plain text: `◆ Caché  🔥 Caliente · se enfría en 47:12`. */
+export const statusText = (parts: StatusParts) => {
+  const { label, emoji, word, note, value } = parts
 
-  if (!ansi) return `◆ ${label}  ${emoji} ${word} · ${note}${value === undefined ? '' : ` ${value}`}`
-
-  const paint = (hex: string, text: string) => `${ansiColor(hex)}${text}${RESET}`
-  const tail = value === undefined ? '' : ` ${paint(color, value)}`
-
-  return `${paint(ACCENT, '◆')} ${label}  ${emoji} ${paint(color, word)}${DIM} · ${note}${RESET}${tail}`
+  return `◆ ${label}  ${emoji} ${word} · ${note}${value === undefined ? '' : ` ${value}`}`
 }

@@ -69,7 +69,7 @@ const setStatus = ($: EngineInterface, text: string | undefined) => {
   $.ui.status(text)
 }
 
-/** The status line follows the display: the cache's text in the `status*` modes, no line at all in `panel`. */
+/** The status line follows the display: the cache's text in `status`, no line at all in `panel`. */
 const refreshStatus = async ($: EngineInterface, ttlMs: number, display: Display) => {
   if (display === 'panel') return setStatus($, undefined)
 
@@ -82,7 +82,7 @@ const refreshStatus = async ($: EngineInterface, ttlMs: number, display: Display
 
   const t = textsOf((await read($, langMode)) ?? DEFAULT_LANG)
 
-  setStatus($, statusText(statusParts(status, t, await read($, tokens)), display === 'status-ansi'))
+  setStatus($, statusText(statusParts(status, t, await read($, tokens))))
 }
 
 const start = ($: EngineInterface, ttlMs: number, display: Display) => {
@@ -156,7 +156,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    // The `status*` modes draw nothing here: the line is the mod's status.
+    // The `status` mode draws nothing here: the line is the mod's status.
     if (display !== 'panel') return next(e)
 
     // What other hooks draw in the band (usage-meter's) stays; this row goes above it.
