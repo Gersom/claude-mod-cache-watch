@@ -14,8 +14,8 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 ## Comportamiento
 
 - Antes de la primera respuesta de la sesión no dibuja nada.
-- **Caliente:** `● Caliente · se enfría en 47:12`, con la cuenta regresiva que baja cada segundo. Formato `47:12` por debajo de una hora y `1:00:00` en el borde. La cuenta va en verde y pasa a amarillo cuando queda el 20 % del TTL o menos (12 min con 1 h; 1 min con 5 min).
-- **Frío:** `● Frío · la próxima petición reescribirá ~84k tokens`, en azul claro. La cifra son los tokens del contexto (`context.tokens`) de la última medición, abreviados (`k`, `M`); si no se conocen, se omite y queda «la próxima petición reescribirá la conversación».
+- **Caliente:** `🔥 Caliente · se enfría en 47:12`, con la cuenta regresiva que baja cada segundo. Formato `47:12` por debajo de una hora y `1:00:00` en el borde. El texto y la cuenta cambian de color y de emoji a medida que baja el TTL (ver Diseño).
+- **Frío:** `⛄ Frío · la próxima petición reescribirá ~84k tokens`, en azul claro. La cifra son los tokens del contexto (`context.tokens`) de la última medición, abreviados (`k`, `M`); si no se conocen, se omite y queda «la próxima petición reescribirá la conversación».
 - Solo cuentan las peticiones del hilo principal. La actividad de un subagente no renueva el caché y no mueve la cuenta.
 - Cede ante una encuesta (`hasSurvey`), igual que usage-meter.
 - Sin consumo de tokens: solo observa eventos y dibuja.
@@ -26,21 +26,32 @@ Una sola línea. En la terminal lleva un borde redondeado gris oscuro (`#4b5563`
 
 ```
 ╭──────────────────────────────────────────────────────────────╮
-│ ◆ Caché  ● Caliente · se enfría en 47:12                     │
+│ ◆ Caché  🔥 Caliente · se enfría en 47:12                    │
 ╰──────────────────────────────────────────────────────────────╯
 
 ╭──────────────────────────────────────────────────────────────╮
-│ ◆ Caché  ● Frío · la próxima petición reescribirá ~84k tokens│
+│ ◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens│
 ╰──────────────────────────────────────────────────────────────╯
 ```
 
-- **Símbolo:** `●` coloreado en lugar de un emoji, para evitar problemas de ancho de columna. El `◆` va en azul (`#60a5fa`), como en usage-meter.
-- **Colores:** verde (`#4ade80`) caliente, amarillo (`#facc15`) con el 20 % o menos del TTL, azul claro (`#93c5fd`) frío. El texto secundario va atenuado.
+- **Rombo:** el `◆` va en naranja (`#fb923c`).
+- **Calor:** según la parte del TTL que queda, el texto «Caliente» y la cuenta pasan por cinco colores, con su emoji. El emoji no se puede colorear; cambia por etapa:
+
+  | Queda del TTL | Color | Emoji |
+  |---|---|---|
+  | más del 80 % | rojo `#ef4444` | 🔥 |
+  | 60–80 % | naranja `#fb923c` | 🔥 |
+  | 40–60 % | amarillo `#facc15` | ☀️ |
+  | 20–40 % | blanco `#ffffff` | ☀️ |
+  | 20 % o menos (a punto de enfriarse) | celeste claro `#a5f3fc` | ❄️ |
+  | frío | azul claro `#93c5fd` | ⛄ |
+
+  El texto secundario va atenuado.
 - Si no cabe, la línea se corta al final (`…`); nunca pasa a otra.
 
 ### Convivencia con usage-meter
 
-Ambos dibujan en la franja sobre el prompt (`AbovePrompt`). cache-watch pide primero lo que dibujan los demás (`next(e)`) y devuelve una columna con eso arriba y su fila debajo; si no hay nada debajo, devuelve solo su fila. El árbol que entrega `next(e)` es un valor de datos (`RenderElement`), así que se puede meter tal cual como hijo de la columna.
+Ambos dibujan en la franja sobre el prompt (`AbovePrompt`). cache-watch pide primero lo que dibujan los demás (`next(e)`) y devuelve una columna con su fila arriba y eso debajo (usage-meter, por su parte, se apila bajo lo que haya debajo de él); si no hay nada debajo, devuelve solo su fila. El árbol que entrega `next(e)` es un valor de datos (`RenderElement`), así que se puede meter tal cual como hijo de la columna.
 
 ## Opción `ttl`
 
@@ -143,6 +154,6 @@ cache-watch/
 ## Limitaciones conocidas
 
 - El TTL es una opción, no un dato del motor (ver «Opción `ttl`»); si no coincide con el del plan, la cuenta no coincidirá con el caché real.
-- **Orden con usage-meter:** cache-watch envuelve lo que dibujan los hooks que están debajo de él en la cadena. usage-meter dibuja su recuadro sin llamar a `next(e)`; si en la cadena queda por encima de cache-watch, su recuadro tapa la fila de cache-watch. En el mismo nivel (`user`) el orden lo decide el motor; si la fila no aparece junto a usage-meter, ese es el motivo.
+- **Orden con usage-meter:** desde usage-meter 1.0.x (commit `feat(T-13)`) ambos mods piden primero lo que dibujan los demás (`next(e)`) y se apilan, con cache-watch siempre arriba y usage-meter debajo, sin importar cuál quede primero en la cadena. Con una versión anterior de usage-meter, que no llama a `next(e)`, su recuadro puede tapar la fila de cache-watch: actualiza usage-meter.
 - Con la franja muy baja (`maxRows` pequeño) el motor desplaza las últimas filas fuera de vista; la de cache-watch va al final.
 - Los tests no cubren el pintado real (colores, bordes) sino la lógica y los hooks bajo cada superficie.

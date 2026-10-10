@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderNode } from 'claude-code'
 
 import type { Lang } from '../types'
-import { ACCENT, COLORS, compactTokens, countdown, statusOf, ttlOf } from './format'
+import { ACCENT, COLORS, EMOJI, compactTokens, countdown, statusOf, ttlOf } from './format'
 import { DEFAULT_LANG, detectLang, textsOf } from './i18n'
 
 const BORDER_COLOR = '#4b5563'
@@ -111,7 +111,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    // What other hooks draw in the band (usage-meter's) stays; this row goes under it.
+    // What other hooks draw in the band (usage-meter's) stays; this row goes above it.
     const below = await next(e)
     const at = await read($, lastAt)
 
@@ -134,7 +134,7 @@ export const register: Register = (on, options) => {
           <Text color={ACCENT}>{'◆ '}</Text>
           <Text bold>{t.label}</Text>
           <Text>{'  '}</Text>
-          <Text color={color}>{'● '}</Text>
+          <Text>{`${EMOJI[status.kind === 'hot' ? status.level : 'cold']} `}</Text>
           {status.kind === 'hot' ? (
             <Text>
               <Text bold color={color}>
@@ -157,6 +157,6 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
-    return isEmpty(below) ? row : <Box flexDirection="column">{below}{row}</Box>
+    return isEmpty(below) ? row : <Box flexDirection="column">{row}{below}</Box>
   })
 }

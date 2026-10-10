@@ -28,9 +28,9 @@ describe('remaining and statusOf', () => {
 
   test('none before the first request, hot until the TTL runs out, cold from then on', () => {
     expect(statusOf(null, 5000, HOUR)).toBeNull()
-    expect(statusOf(0, 59 * MIN, HOUR)).toEqual({ kind: 'hot', leftMs: MIN, level: 'yellow' })
-    expect(statusOf(0, 30 * MIN, HOUR)).toEqual({ kind: 'hot', leftMs: 30 * MIN, level: 'green' })
-    expect(statusOf(0, HOUR - 1, HOUR)).toMatchObject({ kind: 'hot', level: 'yellow' })
+    expect(statusOf(0, 59 * MIN, HOUR)).toEqual({ kind: 'hot', leftMs: MIN, level: 'ice' })
+    expect(statusOf(0, 30 * MIN, HOUR)).toEqual({ kind: 'hot', leftMs: 30 * MIN, level: 'yellow' })
+    expect(statusOf(0, HOUR - 1, HOUR)).toMatchObject({ kind: 'hot', level: 'ice' })
     expect(statusOf(0, HOUR, HOUR)).toEqual({ kind: 'cold' })
     expect(statusOf(0, 3 * HOUR, HOUR)).toEqual({ kind: 'cold' })
   })
@@ -42,13 +42,17 @@ describe('remaining and statusOf', () => {
 })
 
 describe('levelOf', () => {
-  test('yellow at 20 % of the TTL or less, green with more', () => {
-    expect(levelOf(HOUR, HOUR)).toBe('green')
-    expect(levelOf(0.2 * HOUR + 1, HOUR)).toBe('green')
-    expect(levelOf(0.2 * HOUR, HOUR)).toBe('yellow')
-    expect(levelOf(1000, HOUR)).toBe('yellow')
-    expect(levelOf(MIN, 5 * MIN)).toBe('yellow')
-    expect(levelOf(2 * MIN, 5 * MIN)).toBe('green')
+  test('red, orange, yellow, white and ice as the share left drops by fifths', () => {
+    expect(levelOf(HOUR, HOUR)).toBe('red')
+    expect(levelOf(0.8 * HOUR + 1, HOUR)).toBe('red')
+    expect(levelOf(0.8 * HOUR, HOUR)).toBe('orange')
+    expect(levelOf(0.6 * HOUR, HOUR)).toBe('yellow')
+    expect(levelOf(0.4 * HOUR, HOUR)).toBe('white')
+    expect(levelOf(0.2 * HOUR + 1, HOUR)).toBe('white')
+    expect(levelOf(0.2 * HOUR, HOUR)).toBe('ice')
+    expect(levelOf(1000, HOUR)).toBe('ice')
+    expect(levelOf(MIN, 5 * MIN)).toBe('ice')
+    expect(levelOf(3 * MIN, 5 * MIN)).toBe('yellow')
   })
 })
 

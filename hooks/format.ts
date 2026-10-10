@@ -1,4 +1,5 @@
-export type Level = 'green' | 'yellow'
+/** From just refreshed to about to cool: the color the text takes as the cache loses heat. */
+export type Level = 'red' | 'orange' | 'yellow' | 'white' | 'ice'
 
 /** The cache lasts one hour after a request unless the `ttl` option says otherwise. */
 export const DEFAULT_TTL_MS = 3_600_000
@@ -10,11 +11,26 @@ export const TTL_MS: Record<string, number> = { '1h': DEFAULT_TTL_MS, '5m': 300_
 export const ttlOf = (value: unknown): number =>
   (typeof value === 'string' ? TTL_MS[value] : undefined) ?? DEFAULT_TTL_MS
 
-/** The share of the TTL left at or below which the countdown turns yellow. */
-export const WARN_SHARE = 0.2
+/** The share of the TTL left above which each level holds: red, orange, yellow, white, and ice below the last. */
+export const STEPS: [Level, number][] = [
+  ['red', 0.8],
+  ['orange', 0.6],
+  ['yellow', 0.4],
+  ['white', 0.2]
+]
 
-export const ACCENT = '#60a5fa'
-export const COLORS = { green: '#4ade80', yellow: '#facc15', cold: '#93c5fd' }
+export const ACCENT = '#fb923c'
+export const COLORS = {
+  red: '#ef4444',
+  orange: '#fb923c',
+  yellow: '#facc15',
+  white: '#ffffff',
+  ice: '#a5f3fc',
+  cold: '#93c5fd'
+}
+
+/** The emoji of a level: fire while it is red or orange, sun at yellow or white, snowflake about to cool, snowman once cold. */
+export const EMOJI = { red: '🔥', orange: '🔥', yellow: '☀️', white: '☀️', ice: '❄️', cold: '⛄' }
 
 /** Time left on the cache, in ms: from the last request, never more than the TTL nor less than zero. */
 export const remaining = (lastAt: number, now: number, ttlMs: number) =>
@@ -31,8 +47,9 @@ export const statusOf = (lastAt: number | null, now: number, ttlMs: number): Sta
   return leftMs > 0 ? { kind: 'hot', leftMs, level: levelOf(leftMs, ttlMs) } : { kind: 'cold' }
 }
 
-/** Yellow once 20 % of the TTL or less is left; green while there is more. */
-export const levelOf = (leftMs: number, ttlMs: number): Level => (leftMs <= ttlMs * WARN_SHARE ? 'yellow' : 'green')
+/** The level for the share of the TTL still left: the hotter the more is left. */
+export const levelOf = (leftMs: number, ttlMs: number): Level =>
+  STEPS.find(([, above]) => leftMs > ttlMs * above)?.[0] ?? 'ice'
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
