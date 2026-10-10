@@ -22,7 +22,7 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 
 ## Diseño
 
-Una sola línea. En la terminal lleva un borde redondeado gris oscuro (`#4b5563`); en la app de escritorio, ninguno:
+Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las superficies (terminal y app de escritorio):
 
 ```
 ╭──────────────────────────────────────────────────────────────╮

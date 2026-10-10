@@ -125,8 +125,7 @@ export const register: Register = (on, options) => {
     const known = await read($, tokens)
     const { Box, Text } = $.ui.resolve(e)
     const color = status.kind === 'hot' ? COLORS[status.level] : COLORS.cold
-    // The terminal draws a gray border around the row; the desktop draws none.
-    const frame = e.surface === 'terminal' ? { borderStyle: 'round' as const, borderColor: BORDER_COLOR } : {}
+    const frame = { borderStyle: 'round' as const, borderColor: BORDER_COLOR }
 
     const row = (
       <Box {...frame} paddingX={1}>
