@@ -253,7 +253,7 @@ export const register: Register = (on, options) => {
 
     const row = (
       <Box {...frame} paddingX={1}>
-        <Box justifyContent="space-between">
+        <Box flexGrow={1} justifyContent="space-between">
           <Text wrap="truncate-end">
             <Text>{`${EMOJI[status.kind === 'hot' ? status.level : 'cold']} `}</Text>
             {status.kind === 'hot' ? (
