@@ -35,6 +35,13 @@ describe('texts', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(es).sort())
   })
 
+  test('hot and cold are the whole phrase', () => {
+    expect(es.hot).toBe('Caché caliente')
+    expect(es.cold).toBe('Caché fría')
+    expect(en.hot).toBe('Hot cache')
+    expect(en.cold).toBe('Cold cache')
+  })
+
   test('the rewrite warning carries the tokens, or leaves the figure out', () => {
     expect(es.rewrite('84k')).toBe('la próxima petición reescribirá ~84k tokens')
     expect(en.rewrite('84k')).toBe('the next request will rewrite ~84k tokens')

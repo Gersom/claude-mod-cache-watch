@@ -71,19 +71,21 @@ describe('levelOf', () => {
 })
 
 describe('countdown', () => {
-  test('minutes and seconds below an hour', () => {
-    expect(countdown(47 * MIN + 12_000)).toBe('47:12')
-    expect(countdown(5 * MIN)).toBe('5:00')
-    expect(countdown(7000)).toBe('0:07')
-    expect(countdown(0)).toBe('0:00')
-    expect(countdown(-5)).toBe('0:00')
+  test('minutes and seconds below an hour, seconds alone below a minute', () => {
+    expect(countdown(47 * MIN + 12_000)).toBe('47m 12s')
+    expect(countdown(59 * MIN + 3000)).toBe('59m 03s')
+    expect(countdown(5 * MIN)).toBe('5m 00s')
+    expect(countdown(45_000)).toBe('45s')
+    expect(countdown(7000)).toBe('7s')
+    expect(countdown(0)).toBe('0s')
+    expect(countdown(-5)).toBe('0s')
   })
 
   test('hours at the edge, seconds rounded up', () => {
-    expect(countdown(HOUR)).toBe('1:00:00')
-    expect(countdown(HOUR - 1)).toBe('1:00:00')
-    expect(countdown(HOUR - 1000)).toBe('59:59')
-    expect(countdown(61_500)).toBe('1:02')
+    expect(countdown(HOUR)).toBe('1h 00m 00s')
+    expect(countdown(HOUR - 1)).toBe('1h 00m 00s')
+    expect(countdown(HOUR - 1000)).toBe('59m 59s')
+    expect(countdown(61_500)).toBe('1m 02s')
   })
 })
 
@@ -133,32 +135,29 @@ describe('statusParts and statusText', () => {
   const en = textsOf('en')
   const hot = { kind: 'hot' as const, leftMs: 47 * MIN + 12_000, level: 'orange' as const }
 
-  test('hot: the word, the note and the countdown', () => {
+  test('hot: the phrase and the countdown', () => {
     expect(statusParts(hot, es, 84_000)).toEqual({
-      label: 'Caché',
       emoji: '🔥',
-      word: 'Caliente',
-      note: 'se enfría en',
-      value: '47:12'
+      word: 'Caché caliente',
+      value: '47m 12s'
     })
   })
 
   test('cold: the rewrite note with the tokens, or without them when they are not known', () => {
     expect(statusParts({ kind: 'cold' }, es, 84_000)).toEqual({
-      label: 'Caché',
       emoji: '⛄',
-      word: 'Frío',
+      word: 'Caché fría',
       note: 'la próxima petición reescribirá ~84k tokens'
     })
     expect(statusParts({ kind: 'cold' }, es, null).note).toBe('la próxima petición reescribirá la conversación')
   })
 
   test('plain text, one line', () => {
-    expect(statusText(statusParts(hot, es, null))).toBe('◆ Caché  🔥 Caliente · se enfría en 47:12')
+    expect(statusText(statusParts(hot, es, null))).toBe('🔥 Caché caliente · 47m 12s')
     expect(statusText(statusParts({ kind: 'cold' }, es, 84_000))).toBe(
-      '◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens'
+      '⛄ Caché fría · la próxima petición reescribirá ~84k tokens'
     )
-    expect(statusText(statusParts(hot, en, null))).toBe('◆ Cache  🔥 Hot · cools in 47:12')
+    expect(statusText(statusParts(hot, en, null))).toBe('🔥 Hot cache · 47m 12s')
     expect(statusText(statusParts(hot, es, null))).not.toContain('\n')
   })
 })

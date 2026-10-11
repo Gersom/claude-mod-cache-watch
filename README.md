@@ -1,6 +1,6 @@
 # cache-watch
 
-Hook para Claude Code que muestra, en una franja sobre el prompt, si el caché de prompts de la sesión está **caliente** o **frío**.
+Hook para Claude Code que muestra, en una franja sobre el prompt, si el caché de prompts de la sesión está **caliente** o **frío**: «Caché caliente» o «Caché fría».
 
 ## Por qué
 
@@ -14,8 +14,8 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 ## Comportamiento
 
 - Antes de la primera respuesta de la sesión no dibuja nada.
-- **Caliente:** `🔥 Caliente · se enfría en 47:12`, con la cuenta regresiva que baja cada segundo. Formato `47:12` por debajo de una hora y `1:00:00` en el borde. El texto y la cuenta cambian de color y de emoji a medida que baja el TTL (ver Diseño).
-- **Frío:** `⛄ Frío · la próxima petición reescribirá ~84k tokens`, en azul claro. La cifra son los tokens del contexto (`context.tokens`) de la última medición, abreviados (`k`, `M`); si no se conocen, se omite y queda «la próxima petición reescribirá la conversación».
+- **Caliente:** `🔥 Caché caliente · se enfría en 47m 12s`, con la cuenta regresiva que baja cada segundo. Formato `45s` por debajo de un minuto, `47m 12s` por debajo de una hora (minutos sin relleno, segundos con dos dígitos) y `1h 00m 00s` desde la hora. La frase «Caché caliente» y la cuenta cambian de color y de emoji a medida que baja el TTL (ver Diseño).
+- **Frío:** `⛄ Caché fría · la próxima petición reescribirá ~84k tokens`, en azul claro. La cifra son los tokens del contexto (`context.tokens`) de la última medición, abreviados (`k`, `M`); si no se conocen, se omite y queda «la próxima petición reescribirá la conversación».
 - Solo cuentan las peticiones del hilo principal. La actividad de un subagente no renueva el caché y no mueve la cuenta.
 - Cede ante una encuesta (`hasSurvey`), igual que usage-meter.
 - Dos vistas, que se cambian en vivo con `/cache-watch` (ver «Comando `/cache-watch`»): la fila con borde sobre el prompt (`panel`) o la línea de estado del mod (`status`).
@@ -27,16 +27,15 @@ Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las 
 
 ```
 ╭──────────────────────────────────────────────────────────────╮
-│ ◆ Caché  🔥 Caliente · se enfría en 47:12                    │
+│ 🔥 Caché caliente · se enfría en 47m 12s                     │
 ╰──────────────────────────────────────────────────────────────╯
 
 ╭──────────────────────────────────────────────────────────────╮
-│ ◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens│
+│ ⛄ Caché fría · la próxima petición reescribirá ~84k tokens  │
 ╰──────────────────────────────────────────────────────────────╯
 ```
 
-- **Rombo:** el `◆` va en naranja (`#fb923c`).
-- **Calor:** según la parte del TTL que queda, el texto «Caliente» y la cuenta pasan por cinco colores, con su emoji. El emoji no se puede colorear; cambia por etapa:
+- **Calor:** según la parte del TTL que queda, toda la frase «Caché caliente» y la cuenta pasan por cinco colores, con su emoji. El emoji no se puede colorear; cambia por etapa:
 
   | Queda del TTL | Color | Emoji |
   |---|---|---|
@@ -47,7 +46,7 @@ Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las 
   | 20 % o menos (a punto de enfriarse) | celeste claro `#a5f3fc` | ❄️ |
   | frío | azul claro `#93c5fd` | ⛄ |
 
-  El texto secundario va atenuado.
+  La frase «Caché fría» va en azul claro. El texto secundario va atenuado.
 - Si no cabe, la línea se corta al final (`…`); nunca pasa a otra.
 
 ### Convivencia con usage-meter
@@ -68,7 +67,7 @@ El TTL se elige en la configuración del mod (`/config`, o `pluginConfigs` en lo
 El estado se muestra en una de dos vistas:
 
 - `panel` (por defecto): la fila con borde sobre el prompt, descrita en «Diseño».
-- `status`: no dibuja la fila; fija la línea de estado del mod (`$.ui.status`, una por plugin, bajo el prompt) con texto plano y el mismo contenido: `◆ Caché  🔥 Caliente · se enfría en 47:12` o `◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens`, en el idioma del panel.
+- `status`: no dibuja la fila; fija la línea de estado del mod (`$.ui.status`, una por plugin, bajo el prompt) con texto plano, sin el «se enfría en»: `🔥 Caché caliente · 47m 12s` o `⛄ Caché fría · la próxima petición reescribirá ~84k tokens`, en el idioma del panel (en inglés, `🔥 Hot cache · 47m 12s`).
 
 La opción `display` (`/config`, o `pluginConfigs` en los ajustes) es solo la **vista inicial por defecto**: la que rige mientras no hayas elegido otra con `/cache-watch`. Qué vista rige al arrancar, por prioridad:
 

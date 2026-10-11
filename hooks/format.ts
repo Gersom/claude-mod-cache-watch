@@ -21,7 +21,6 @@ export const STEPS: [Level, number][] = [
   ['white', 0.2]
 ]
 
-export const ACCENT = '#fb923c'
 export const COLORS = {
   red: '#ef4444',
   orange: '#fb923c',
@@ -70,14 +69,16 @@ export const levelOf = (leftMs: number, ttlMs: number): Level =>
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
-/** `47:12` below an hour, `1:00:00` from it; whole seconds rounded up, so the TTL's first second reads in full. */
+/** `45s` below a minute, `47m 12s` below an hour, `1h 00m 00s` from it; whole seconds rounded up, so the TTL's first second reads in full. */
 export const countdown = (ms: number) => {
   const total = Math.ceil(Math.max(0, ms) / 1000)
   const hours = Math.floor(total / 3600)
   const minutes = Math.floor((total % 3600) / 60)
   const seconds = total % 60
 
-  return hours > 0 ? `${hours}:${pad2(minutes)}:${pad2(seconds)}` : `${minutes}:${pad2(seconds)}`
+  if (hours > 0) return `${hours}h ${pad2(minutes)}m ${pad2(seconds)}s`
+
+  return minutes > 0 ? `${minutes}m ${pad2(seconds)}s` : `${seconds}s`
 }
 
 /** `850`, `84k`, `1.5k`, `1M`: tokens in their shortest readable form. */
@@ -92,12 +93,11 @@ export const compactTokens = (tokens: number) => {
 
 /** What the status line says, piece by piece: the same words as the panel's row. */
 export type StatusParts = {
-  label: string
   emoji: string
-  /** `Caliente` / `Frío`. */
+  /** `Caché caliente` / `Caché fría`. */
   word: string
-  /** The text after the word: `se enfría en`, or what the next request will rewrite. */
-  note: string
+  /** What the next request will rewrite; none while hot. */
+  note?: string
   /** The countdown; none once cold. */
   value?: string
 }
@@ -106,22 +106,19 @@ export type StatusParts = {
 export const statusParts = (status: Status, t: Texts, known: number | null): StatusParts =>
   status.kind === 'hot'
     ? {
-        label: t.label,
         emoji: EMOJI[status.level],
         word: t.hot,
-        note: t.coolsIn,
         value: countdown(status.leftMs)
       }
     : {
-        label: t.label,
         emoji: EMOJI.cold,
         word: t.cold,
         note: t.rewrite(known === null ? null : compactTokens(known))
       }
 
-/** The status line, in plain text: `◆ Caché  🔥 Caliente · se enfría en 47:12`. */
+/** The status line, in plain text: `🔥 Caché caliente · 47m 12s`. */
 export const statusText = (parts: StatusParts) => {
-  const { label, emoji, word, note, value } = parts
+  const { emoji, word, note, value } = parts
 
-  return `◆ ${label}  ${emoji} ${word} · ${note}${value === undefined ? '' : ` ${value}`}`
+  return `${emoji} ${word}${note === undefined ? '' : ` · ${note}`}${value === undefined ? '' : ` · ${value}`}`
 }

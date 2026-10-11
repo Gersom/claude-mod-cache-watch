@@ -4,7 +4,6 @@ import type { EngineInterface, Register, RenderNode } from 'claude-code'
 import type { Lang } from '../types'
 import type { Display } from './format'
 import {
-  ACCENT,
   COLORS,
   EMOJI,
   compactTokens,
@@ -251,9 +250,6 @@ export const register: Register = (on, options) => {
     const row = (
       <Box {...frame} paddingX={1}>
         <Text wrap="truncate-end">
-          <Text color={ACCENT}>{'◆ '}</Text>
-          <Text bold>{t.label}</Text>
-          <Text>{'  '}</Text>
           <Text>{`${EMOJI[status.kind === 'hot' ? status.level : 'cold']} `}</Text>
           {status.kind === 'hot' ? (
             <Text>

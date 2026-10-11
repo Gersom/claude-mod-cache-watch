@@ -3,10 +3,11 @@ import type { Lang } from '../types'
 /** Every word the panel writes itself, in one language. */
 export type Texts = {
   lang: Lang
-  label: string
+  /** `Caché caliente` (`Hot cache`). */
   hot: string
+  /** `Caché fría` (`Cold cache`). */
   cold: string
-  /** `se enfría en 47:12` (`cools in 47:12`): what comes before the countdown. */
+  /** `se enfría en 47m 12s` (`cools in 47m 12s`): what comes before the countdown. */
   coolsIn: string
   /** `la próxima petición reescribirá ~84k tokens`; without the figure when the tokens are not known. */
   rewrite: (tokens: string | null) => string
@@ -24,9 +25,8 @@ export const DEFAULT_LANG: Lang = 'en'
 export const TEXTS: Record<Lang, Texts> = {
   es: {
     lang: 'es',
-    label: 'Caché',
-    hot: 'Caliente',
-    cold: 'Frío',
+    hot: 'Caché caliente',
+    cold: 'Caché fría',
     coolsIn: 'se enfría en',
     rewrite: tokens =>
       tokens === null
@@ -38,9 +38,8 @@ export const TEXTS: Record<Lang, Texts> = {
   },
   en: {
     lang: 'en',
-    label: 'Cache',
-    hot: 'Hot',
-    cold: 'Cold',
+    hot: 'Hot cache',
+    cold: 'Cold cache',
     coolsIn: 'cools in',
     rewrite: tokens =>
       tokens === null

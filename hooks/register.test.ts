@@ -43,10 +43,10 @@ test('hot after a response: the time left, then cold once the TTL runs out', asy
     const ui = await $.ui.mount({ plugin: 'cache-watch', surface, ...BAND })
 
     expect(await ui.find({ type: 'Text', text: /Caché/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /se enfría en/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^1:00:00$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Frío/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^1h 00m 00s$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Caché fría/ })).toBeUndefined()
     await ui.unmount()
   }
 
@@ -54,13 +54,13 @@ test('hot after a response: the time left, then cold once the TTL runs out', asy
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /^47:12$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^47m 12s$/ })).toBeDefined()
 
   await clock.advance(47 * MIN + 12_000)
 
-  expect(await ui.find({ type: 'Text', text: /Frío/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché fría/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /la próxima petición reescribirá ~84k tokens/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -75,15 +75,15 @@ test('a 5-minute TTL cools after five minutes, not one hour', { options: { ttl: 
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /^5:00$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^5m 00s$/ })).toBeDefined()
 
   await clock.advance(4 * MIN)
 
-  expect(await ui.find({ type: 'Text', text: /^1:00$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^1m 00s$/ })).toBeDefined()
 
   await clock.advance(MIN)
 
-  expect(await ui.find({ type: 'Text', text: /Frío/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché fría/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -102,11 +102,11 @@ test('a request of the main loop renews the cache', { options: { ttl: '5m' } }, 
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /^1:00$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^1m 00s$/ })).toBeDefined()
 
   for await (const chunk of $.turn.step(request())) void chunk
 
-  expect(await ui.find({ type: 'Text', text: /^5:00$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^5m 00s$/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -127,11 +127,11 @@ test('a subagent does not renew the cache', { options: { ttl: '5m' } }, async ($
 
   for await (const chunk of $.turn.step(request('sub-1'))) void chunk
 
-  expect(await ui.find({ type: 'Text', text: /^1:00$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^1m 00s$/ })).toBeDefined()
 
   await clock.advance(MIN)
 
-  expect(await ui.find({ type: 'Text', text: /Frío/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché fría/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -147,7 +147,7 @@ test('cold without a token count leaves the figure out', async ($, on) => {
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /Frío/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché fría/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /la próxima petición reescribirá la conversación/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /tokens/ })).toBeUndefined()
   await ui.unmount()
@@ -163,14 +163,13 @@ test('speaks English when the settings name no language', async ($, on) => {
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /Cache/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Hot/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Hot cache/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /cools in/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
 
   await clock.advance(61 * MIN)
 
-  expect(await ui.find({ type: 'Text', text: /Cold/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Cold cache/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /the next request will rewrite ~84k tokens/ })).toBeDefined()
   await ui.unmount()
 })
@@ -185,8 +184,8 @@ test('speaks the language settings.language names, in any spelling', async ($, o
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /Hot/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Hot cache/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -240,7 +239,7 @@ test('lives beside another hook of the band: keeps what is below and adds its ro
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
   expect(await ui.find({ type: 'Text', text: /OTHER BAND/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -299,7 +298,7 @@ test('panel mode never sets the status line, and clears one left behind', async 
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   expect(texts(lines)).toEqual([])
   // Cleared at most once (the start of the module), never repeated.
   expect(lines.length).toBeLessThanOrEqual(1)
@@ -318,9 +317,9 @@ test('status mode sets plain text and draws no row', { options: { display: 'stat
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(texts(lines).at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(texts(lines).at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
   expect(await ui.find({ type: 'Text', text: /Caché/ })).toBeUndefined()
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -336,12 +335,12 @@ test('status mode follows the countdown, then goes cold', { options: { display: 
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
   await clock.advance(12 * MIN + 48_000)
 
-  expect(texts(lines).at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 47:12')
+  expect(texts(lines).at(-1)).toBe('🔥 Caché caliente · 47m 12s')
 
   await clock.advance(47 * MIN + 12_000)
 
-  expect(texts(lines).at(-1)).toBe('◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens')
-  expect(texts(lines).at(-1)).toContain('Frío')
+  expect(texts(lines).at(-1)).toBe('⛄ Caché fría · la próxima petición reescribirá ~84k tokens')
+  expect(texts(lines).at(-1)).toContain('Caché fría')
 
   // Cold: the timer stops and the line stays as it is.
   const settled = lines.length
@@ -361,7 +360,7 @@ test('status mode does not repeat a text that did not change', { options: { disp
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
 
-  expect(texts(lines)).toEqual(['◆ Caché  🔥 Caliente · se enfría en 1:00:00'])
+  expect(texts(lines)).toEqual(['🔥 Caché caliente · 1h 00m 00s'])
 })
 
 test('status mode says nothing before the first response', { options: { display: 'status' } }, async ($, on) => {
@@ -384,7 +383,7 @@ test('status mode speaks English when the settings name no language', { options:
 
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
 
-  expect(texts(lines).at(-1)).toBe('◆ Cache  🔥 Hot · cools in 1:00:00')
+  expect(texts(lines).at(-1)).toBe('🔥 Hot cache · 1h 00m 00s')
 })
 
 test('the status line is cleared when the session ends', { options: { display: 'status' } }, async ($, on) => {
@@ -397,7 +396,7 @@ test('the status line is cleared when the session ends', { options: { display: '
 
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
 
-  expect(lines.at(-1)).toContain('Caliente')
+  expect(lines.at(-1)).toContain('Caché caliente')
 
   await $.session.end({ reason: 'other', sessionId: 's', resume: { id: 's' } })
 
@@ -466,15 +465,15 @@ test('/cache-watch with no argument alternates between panel and status', async 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
   // Panel to begin with: the row, no line.
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   expect(texts(lines)).toEqual([])
 
   expect(await cacheWatch($)).toEqual({ text: 'Caché: vista barra de estado' })
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
 
   expect(await cacheWatch($)).toEqual({ text: 'Caché: vista panel' })
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   expect(lines.at(-1)).toBeUndefined()
 
   expect(await cacheWatch($, '   ')).toEqual({ text: 'Caché: vista barra de estado' })
@@ -489,7 +488,7 @@ test('/cache-watch panel and /cache-watch status pick one, and picking it again 
 
   expect(await cacheWatch($, 'status')).toEqual({ text: 'Caché: vista barra de estado' })
   expect(await cacheWatch($, 'status')).toEqual({ text: 'Caché: vista barra de estado' })
-  expect(texts(lines)).toEqual(['◆ Caché  🔥 Caliente · se enfría en 1:00:00'])
+  expect(texts(lines)).toEqual(['🔥 Caché caliente · 1h 00m 00s'])
 
   expect(await cacheWatch($, 'PANEL')).toEqual({ text: 'Caché: vista panel' })
   expect(await cacheWatch($, ' panel ')).toEqual({ text: 'Caché: vista panel' })
@@ -507,14 +506,14 @@ test('/cache-watch with an argument it does not know changes nothing and says th
 
   expect(await cacheWatch($, 'bar')).toEqual(usage)
   expect(await cacheWatch($, 'status panel')).toEqual(usage)
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   expect(texts(lines)).toEqual([])
   expect(entries.has('display')).toBe(false)
 
   // And in status it stays there.
   await cacheWatch($, 'status')
   expect(await cacheWatch($, 'nope')).toEqual(usage)
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
   expect(entries.get('display')).toBe('status')
   await ui.unmount()
 })
@@ -537,7 +536,7 @@ test('the switch sets and clears the status line at once, and the text comes bac
   await clock.advance(12 * MIN + 48_000)
 
   await cacheWatch($, 'status')
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 47:12')
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 47m 12s')
 
   await cacheWatch($, 'panel')
   expect(lines.at(-1)).toBeUndefined()
@@ -545,14 +544,14 @@ test('the switch sets and clears the status line at once, and the text comes bac
   // Same second, same text: it must reappear, not be taken for already shown.
   await cacheWatch($, 'status')
   expect(lines.slice(-3)).toEqual([
-    '◆ Caché  🔥 Caliente · se enfría en 47:12',
+    '🔥 Caché caliente · 47m 12s',
     undefined,
-    '◆ Caché  🔥 Caliente · se enfría en 47:12'
+    '🔥 Caché caliente · 47m 12s'
   ])
 
   // The countdown goes on in status, and stops showing once back in panel.
   await clock.advance(MIN)
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 46:12')
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 46m 12s')
 
   await cacheWatch($, 'panel')
   await clock.advance(MIN)
@@ -567,7 +566,7 @@ test('the switch to status once cold sets the cold text at once', async ($, on) 
   await clock.advance(61 * MIN)
   await cacheWatch($, 'status')
 
-  expect(lines.at(-1)).toBe('◆ Caché  ⛄ Frío · la próxima petición reescribirá ~84k tokens')
+  expect(lines.at(-1)).toBe('⛄ Caché fría · la próxima petición reescribirá ~84k tokens')
 })
 
 test('the switch before the first response draws and sets nothing', async ($, on) => {
@@ -578,7 +577,7 @@ test('the switch before the first response draws and sets nothing', async ($, on
   expect(texts(lines)).toEqual([])
 
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
 })
 
 test('the chosen view is saved, and a new session starts from it', async ($, on) => {
@@ -605,12 +604,12 @@ test('a new session restores the saved view over the option: status over panel',
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
 
   // The first `/cache-watch` alternates from what was restored.
   expect(await cacheWatch($)).toEqual({ text: 'Caché: vista panel' })
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -623,7 +622,7 @@ test('a new session restores the saved view over the option: panel over status',
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
   expect(texts(lines)).toEqual([])
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -635,8 +634,8 @@ test('with nothing saved the display option rules', { options: { display: 'statu
 
   const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
 
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
-  expect(await ui.find({ type: 'Text', text: /Caliente/ })).toBeUndefined()
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
 
   // The first alternation goes from the option's view.
   expect(await cacheWatch($)).toEqual({ text: 'Caché: vista panel' })
@@ -650,5 +649,5 @@ test('a saved value this mod does not know is ignored: the option rules', { opti
   base(on, { display: 'status-ansi' })
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
 
-  expect(lines.at(-1)).toBe('◆ Caché  🔥 Caliente · se enfría en 1:00:00')
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
 })
