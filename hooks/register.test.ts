@@ -243,7 +243,7 @@ test('lives beside another hook of the band: keeps what is below and adds its ro
   await ui.unmount()
 })
 
-test('leaves a blank line before the band below when the band has room, and none when it is short', { plugins: [other] }, async ($, on) => {
+test('parts the panel from the band below with a blank row on the desktop, and not on the terminal', { plugins: [other] }, async ($, on) => {
   on('ui.render', () => engineBand)
   on('settings.read', spanish)
   on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -251,23 +251,21 @@ test('leaves a blank line before the band below when the band has room, and none
 
   await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
 
-  const gapOf = async (maxRows: number) => {
-    const ui = await $.ui.mount({
-      plugin: 'cache-watch',
-      surface: 'terminal',
-      ...BAND,
-      props: { hasSurvey: false, isWorking: false, maxRows, bodyColumns: 80 } as never
-    })
+  const childrenOf = async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({ plugin: 'cache-watch', surface, ...BAND })
     const stack = await ui.find({ type: 'Box', text: /OTHER BAND/ })
-    const gap = (stack?.children?.[0] as { props?: { marginBottom?: number } } | undefined)?.props?.marginBottom
 
     await ui.unmount()
 
-    return gap
+    return (stack?.children ?? []) as { type: string; props?: { height?: number } }[]
   }
 
-  expect(await gapOf(20)).toBe(1)
-  expect(await gapOf(10)).toBe(0)
+  const desktop = await childrenOf('desktop')
+  const terminal = await childrenOf('terminal')
+
+  expect(desktop.map(child => child.props?.height)).toContain(1)
+  expect(desktop).toHaveLength(3)
+  expect(terminal).toHaveLength(2)
 })
 
 /** Observes `$.ui.status`: every text (or `undefined`, the clear) the mod sets, in order. */

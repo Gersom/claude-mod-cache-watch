@@ -20,8 +20,6 @@ import { DEFAULT_LANG, detectLang, textsOf } from './i18n'
 
 const BORDER_COLOR = '#4b5563'
 
-/** Rows the band needs to leave a blank line between this row and the one below (usage-meter's full view plus this row and the gap); in a shorter band they stay touching. */
-const GAP_MIN_ROWS = 14
 const TICK_MS = 1000
 /** The key of `$.store` that keeps the view `/cache-watch` chose, between sessions. */
 const STORE_KEY = 'display'
@@ -275,11 +273,11 @@ export const register: Register = (on, options) => {
 
     if (isEmpty(below)) return row
 
+    // The desktop page draws the two bordered boxes touching; a blank spacer row parts them. The terminal's band is short on rows and already reads well.
     return (
       <Box flexDirection="column">
-        <Box flexDirection="column" marginBottom={e.props.maxRows >= GAP_MIN_ROWS ? 1 : 0}>
-          {row}
-        </Box>
+        {row}
+        {e.surface === 'desktop' ? <Box height={1} /> : null}
         {below}
       </Box>
     )
