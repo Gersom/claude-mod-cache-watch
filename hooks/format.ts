@@ -92,14 +92,17 @@ const EMOJI_COLUMNS = 2
 
 /**
  * Whether the hot row, in full (`🔥 Caché caliente · se enfría en 47m 12s`), and the button fit in `columns` (the band's).
- * The emoji counts as two columns, the rest by length; `value` is the countdown.
+ * The emoji counts as two columns, the rest by length; `value` is the countdown, `extra` the note after it (`en frío reescribe ~84k`), if any.
  */
-export const fitsFull = (t: Texts, value: string, columns: number) => {
-  const text = EMOJI_COLUMNS + ` ${t.hot} · ${t.coolsIn} ${value}`.length
+export const fitsFull = (t: Texts, value: string, columns: number, extra?: string) => {
+  const text = EMOJI_COLUMNS + ` ${t.hot} · ${t.coolsIn} ${value}${extra === undefined ? '' : ` · ${extra}`}`.length
   const button = BUTTON_GAP + `[=] ${t.toStatus}`.length
 
   return text + button <= columns - FRAME_COLUMNS
 }
+
+/** How the hot row is laid out: the note after the countdown, if it stays, and whether «cools in» goes. */
+export type HotLayout = { extra?: string; short: boolean }
 
 /** `850`, `84k`, `1.5k`, `1M`: tokens in their shortest readable form. */
 export const compactTokens = (tokens: number) => {
@@ -111,6 +114,24 @@ export const compactTokens = (tokens: number) => {
   return String(Math.max(0, Math.round(tokens)))
 }
 
+/**
+ * The hot row for the band's `columns`: it drops the note first (`en frío reescribe ~84k`), then, on the terminal only, «cools in»;
+ * what still does not fit is cut at the end. The note exists only when the tokens (`known`) are.
+ */
+export const hotLayout = (
+  t: Texts,
+  value: string,
+  columns: number,
+  known: number | null,
+  terminal: boolean
+): HotLayout => {
+  const extra = known === null ? undefined : t.ifCold(compactTokens(known))
+
+  if (extra !== undefined && fitsFull(t, value, columns, extra)) return { extra, short: false }
+
+  return { short: terminal && !fitsFull(t, value, columns) }
+}
+
 /** What the status line says, piece by piece: the same words as the panel's row. */
 export type StatusParts = {
   emoji: string
@@ -120,6 +141,8 @@ export type StatusParts = {
   note?: string
   /** The countdown; none once cold. */
   value?: string
+  /** What is at stake if the cache cools (`~84k en juego`); only while hot and the tokens are known. */
+  tail?: string
 }
 
 /** The pieces of the status line for the cache's status, in the language of `t`; `known` are the context tokens, if any. */
@@ -128,7 +151,8 @@ export const statusParts = (status: Status, t: Texts, known: number | null): Sta
     ? {
         emoji: EMOJI[status.level],
         word: t.hot,
-        value: countdown(status.leftMs)
+        value: countdown(status.leftMs),
+        ...(known === null ? {} : { tail: t.atStake(compactTokens(known)) })
       }
     : {
         emoji: EMOJI.cold,
@@ -136,9 +160,9 @@ export const statusParts = (status: Status, t: Texts, known: number | null): Sta
         note: t.rewrite(known === null ? null : compactTokens(known))
       }
 
-/** The status line, in plain text: `🔥 Caché caliente · 47m 12s`. */
+/** The status line, in plain text: `🔥 Caché caliente · 47m 12s · ~84k en juego`. */
 export const statusText = (parts: StatusParts) => {
-  const { emoji, word, note, value } = parts
+  const { emoji, word, note, value, tail } = parts
 
-  return `${emoji} ${word}${note === undefined ? '' : ` · ${note}`}${value === undefined ? '' : ` · ${value}`}`
+  return `${emoji} ${word}${note === undefined ? '' : ` · ${note}`}${value === undefined ? '' : ` · ${value}`}${tail === undefined ? '' : ` · ${tail}`}`
 }

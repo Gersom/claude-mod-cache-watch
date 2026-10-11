@@ -9,7 +9,7 @@ import {
   compactTokens,
   countdown,
   displayOf,
-  fitsFull,
+  hotLayout,
   knownDisplay,
   otherDisplay,
   statusOf,
@@ -250,11 +250,11 @@ export const register: Register = (on, options) => {
     const known = await read($, tokens)
     const { Box, Button, Text } = $.ui.resolve(e)
     const color = status.kind === 'hot' ? COLORS[status.level] : COLORS.cold
-    // On the terminal, with little width, the hot row drops «cools in» and keeps the countdown; the desktop never does.
-    const short =
-      e.surface === 'terminal' &&
-      status.kind === 'hot' &&
-      !fitsFull(t, countdown(status.leftMs), e.props.bodyColumns)
+    // With little width the hot row drops the note on what is at stake first; then, on the terminal, «cools in» (the desktop never does).
+    const { extra, short } =
+      status.kind === 'hot'
+        ? hotLayout(t, countdown(status.leftMs), e.props.bodyColumns, known, e.surface === 'terminal')
+        : { extra: undefined, short: false }
     const frame = { borderStyle: 'round' as const, borderColor: BORDER_COLOR }
 
     const row = (
@@ -271,6 +271,7 @@ export const register: Register = (on, options) => {
                 <Text bold color={color}>
                   {countdown(status.leftMs)}
                 </Text>
+                {extra === undefined ? null : <Text dimColor>{` · ${extra}`}</Text>}
               </Text>
             ) : (
               <Text>

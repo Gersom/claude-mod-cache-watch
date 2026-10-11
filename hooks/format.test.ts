@@ -6,6 +6,7 @@ import {
   countdown,
   displayOf,
   fitsFull,
+  hotLayout,
   knownDisplay,
   levelOf,
   otherDisplay,
@@ -50,6 +51,48 @@ describe('fitsFull', () => {
     expect(fitsFull(en, '59m 03s', 50)).toBe(false)
     expect(fitsFull(en, '1h 00m 00s', 54)).toBe(true)
     expect(fitsFull(en, '1h 00m 00s', 53)).toBe(false)
+  })
+})
+
+describe('fitsFull with the note on what is at stake', () => {
+  test('the note adds its separator and text to the width', () => {
+    const es = textsOf('es')
+    const en = textsOf('en')
+
+    // Spanish: 65 columns, plus ` · en frío reescribe ~84k` (25) = 90.
+    expect(fitsFull(es, '59m 03s', 90, es.ifCold('84k'))).toBe(true)
+    expect(fitsFull(es, '59m 03s', 89, es.ifCold('84k'))).toBe(false)
+    // English: 51 columns, plus ` · if cold, rewrites ~84k` (25) = 76.
+    expect(fitsFull(en, '59m 03s', 76, en.ifCold('84k'))).toBe(true)
+    expect(fitsFull(en, '59m 03s', 75, en.ifCold('84k'))).toBe(false)
+    expect(fitsFull(en, '59m 03s', 51)).toBe(true)
+  })
+})
+
+describe('hotLayout', () => {
+  const es = textsOf('es')
+  const note = 'en frío reescribe ~84k'
+
+  test('everything fits: the note stays, with «cools in»', () => {
+    expect(hotLayout(es, '59m 03s', 90, 84_000, true)).toEqual({ extra: note, short: false })
+    expect(hotLayout(es, '59m 03s', 90, 84_000, false)).toEqual({ extra: note, short: false })
+  })
+
+  test('the note goes first: «cools in» stays while the rest fits', () => {
+    expect(hotLayout(es, '59m 03s', 89, 84_000, true)).toEqual({ short: false })
+    expect(hotLayout(es, '59m 03s', 65, 84_000, true)).toEqual({ short: false })
+  })
+
+  test('then «cools in», on the terminal only', () => {
+    expect(hotLayout(es, '59m 03s', 64, 84_000, true)).toEqual({ short: true })
+    expect(hotLayout(es, '59m 03s', 40, 84_000, true)).toEqual({ short: true })
+    expect(hotLayout(es, '59m 03s', 40, 84_000, false)).toEqual({ short: false })
+  })
+
+  test('without tokens there is no note and the rest is as before', () => {
+    expect(hotLayout(es, '59m 03s', 200, null, true)).toEqual({ short: false })
+    expect(hotLayout(es, '59m 03s', 65, null, true)).toEqual({ short: false })
+    expect(hotLayout(es, '59m 03s', 64, null, true)).toEqual({ short: true })
   })
 })
 
@@ -158,12 +201,17 @@ describe('statusParts and statusText', () => {
   const en = textsOf('en')
   const hot = { kind: 'hot' as const, leftMs: 47 * MIN + 12_000, level: 'orange' as const }
 
-  test('hot: the phrase and the countdown', () => {
+  test('hot: the phrase, the countdown and what is at stake', () => {
     expect(statusParts(hot, es, 84_000)).toEqual({
       emoji: '🔥',
       word: 'Caché caliente',
-      value: '47m 12s'
+      value: '47m 12s',
+      tail: '~84k en juego'
     })
+  })
+
+  test('hot without tokens: no tail', () => {
+    expect(statusParts(hot, es, null)).toEqual({ emoji: '🔥', word: 'Caché caliente', value: '47m 12s' })
   })
 
   test('cold: the rewrite note with the tokens, or without them when they are not known', () => {
@@ -176,6 +224,8 @@ describe('statusParts and statusText', () => {
   })
 
   test('plain text, one line', () => {
+    expect(statusText(statusParts(hot, es, 84_000))).toBe('🔥 Caché caliente · 47m 12s · ~84k en juego')
+    expect(statusText(statusParts(hot, en, 84_000))).toBe('🔥 Hot cache · 47m 12s · ~84k at stake')
     expect(statusText(statusParts(hot, es, null))).toBe('🔥 Caché caliente · 47m 12s')
     expect(statusText(statusParts({ kind: 'cold' }, es, 84_000))).toBe(
       '⛄ Caché fría · la próxima petición reescribirá ~84k tokens'

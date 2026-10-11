@@ -49,6 +49,13 @@ describe('texts', () => {
     expect(en.rewrite(null)).not.toMatch(/~|tokens/)
   })
 
+  test('the note on what is at stake carries the tokens, in the panel row and in the status line', () => {
+    expect(es.ifCold('84k')).toBe('en frío reescribe ~84k')
+    expect(en.ifCold('84k')).toBe('if cold, rewrites ~84k')
+    expect(es.atStake('84k')).toBe('~84k en juego')
+    expect(en.atStake('84k')).toBe('~84k at stake')
+  })
+
   test('the command says which view it left, in the language of the panel', () => {
     expect(es.viewIs('panel')).toBe('Caché: vista panel')
     expect(es.viewIs('status')).toBe('Caché: vista barra de estado')

@@ -11,6 +11,10 @@ export type Texts = {
   coolsIn: string
   /** `la próxima petición reescribirá ~84k tokens`; without the figure when the tokens are not known. */
   rewrite: (tokens: string | null) => string
+  /** `en frío reescribe ~84k` (`if cold, rewrites ~84k`): what the hot panel row adds, the tokens that would be rewritten. */
+  ifCold: (tokens: string) => string
+  /** `~84k en juego` (`~84k at stake`): the same figure, as the hot status line says it. */
+  atStake: (tokens: string) => string
   /** The one line the typeahead shows for `/cache-watch`. */
   commandDescription: string
   /** `Caché: vista panel` (`Cache: panel view`): what `/cache-watch` answers once the view is the display's. */
@@ -34,6 +38,8 @@ export const TEXTS: Record<Lang, Texts> = {
       tokens === null
         ? 'la próxima petición reescribirá la conversación'
         : `la próxima petición reescribirá ~${tokens} tokens`,
+    ifCold: tokens => `en frío reescribe ~${tokens}`,
+    atStake: tokens => `~${tokens} en juego`,
     commandDescription: 'Cambia la vista del caché entre el panel y la barra de estado.',
     viewIs: display => `Caché: vista ${display === 'panel' ? 'panel' : 'barra de estado'}`,
     usage: 'Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.',
@@ -48,6 +54,8 @@ export const TEXTS: Record<Lang, Texts> = {
       tokens === null
         ? 'the next request will rewrite the conversation'
         : `the next request will rewrite ~${tokens} tokens`,
+    ifCold: tokens => `if cold, rewrites ~${tokens}`,
+    atStake: tokens => `~${tokens} at stake`,
     commandDescription: 'Switch the cache view between the panel and the status bar.',
     viewIs: display => `Cache: ${display === 'panel' ? 'panel' : 'status bar'} view`,
     usage: 'Usage: /cache-watch [panel|status]. With no argument, it switches the view.',

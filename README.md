@@ -14,7 +14,7 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 ## Comportamiento
 
 - Antes de la primera respuesta de la sesión no dibuja nada.
-- **Caliente:** `🔥 Caché caliente · se enfría en 47m 12s`, con la cuenta regresiva que baja cada segundo. Formato `45s` por debajo de un minuto, `47m 12s` por debajo de una hora (minutos sin relleno, segundos con dos dígitos) y `1h 00m 00s` desde la hora. La frase «Caché caliente» y la cuenta cambian de color y de emoji a medida que baja el TTL (ver Diseño).
+- **Caliente:** `🔥 Caché caliente · se enfría en 47m 12s · en frío reescribe ~84k`, con la cuenta regresiva que baja cada segundo. El final («en frío reescribe ~84k») son los tokens que se reescribirían si el caché se enfría, los mismos del contexto que usa el estado frío; solo aparece si se conocen, y si no la fila queda como antes (`🔥 Caché caliente · se enfría en 47m 12s`). Formato `45s` por debajo de un minuto, `47m 12s` por debajo de una hora (minutos sin relleno, segundos con dos dígitos) y `1h 00m 00s` desde la hora. La frase «Caché caliente» y la cuenta cambian de color y de emoji a medida que baja el TTL (ver Diseño).
 - **Frío:** `⛄ Caché fría · la próxima petición reescribirá ~84k tokens`, en azul claro. La cifra son los tokens del contexto (`context.tokens`) de la última medición, abreviados (`k`, `M`); si no se conocen, se omite y queda «la próxima petición reescribirá la conversación».
 - Solo cuentan las peticiones del hilo principal. La actividad de un subagente no renueva el caché y no mueve la cuenta.
 - Cede ante una encuesta (`hasSurvey`), igual que usage-meter.
@@ -26,13 +26,13 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las superficies (terminal y app de escritorio), y a la derecha, dentro del mismo borde, el botón `[=] Barra de estado` que pasa a la vista `status`:
 
 ```
-╭────────────────────────────────────────────────────────────────────────────────────╮
-│ 🔥 Caché caliente · se enfría en 47m 12s                       [=] Barra de estado │
-╰────────────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ 🔥 Caché caliente · se enfría en 47m 12s · en frío reescribe ~84k  [=] Barra de estado │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 
-╭────────────────────────────────────────────────────────────────────────────────────╮
-│ ⛄ Caché fría · la próxima petición reescribirá ~84k tokens    [=] Barra de estado │
-╰────────────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ ⛄ Caché fría · la próxima petición reescribirá ~84k tokens        [=] Barra de estado │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 - **Calor:** según la parte del TTL que queda, toda la frase «Caché caliente» y la cuenta pasan por cinco colores, con su emoji. El emoji no se puede colorear; cambia por etapa:
@@ -47,8 +47,12 @@ Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las 
   | frío | azul claro `#93c5fd` | ⛄ |
 
   La frase «Caché fría» va en azul claro. El texto secundario va atenuado.
-- **Poco ancho (solo terminal):** si el texto completo más el botón no caben en el ancho de la franja (menos 4 columnas de borde y relleno; el emoji cuenta como 2), la fila caliente omite «se enfría en» y queda `🔥 Caché caliente · 59m 03s`. En frío no hay «se enfría en» que omitir, y en la app de escritorio nunca se omite.
-- Si aun así no cabe, el texto se corta al final (`…`); nunca pasa a otra línea. El botón conserva su ancho y va atenuado (`Status bar` en inglés).
+- **Poco ancho:** si el texto completo más el botón no caben en el ancho de la franja (menos 4 columnas de borde y relleno; el emoji cuenta como 2), la fila caliente recorta en este orden:
+  1. Primero omite el final «en frío reescribe ~84k» (en terminal y en escritorio): queda `🔥 Caché caliente · se enfría en 59m 03s`.
+  2. Si aun así no cabe, solo en terminal omite también «se enfría en»: queda `🔥 Caché caliente · 59m 03s`. En la app de escritorio «se enfría en» nunca se omite; en frío no hay nada de esto que omitir.
+  3. Si aun así no cabe, el texto se corta al final (`…`); nunca pasa a otra línea.
+- El final va atenuado, como el resto del texto secundario.
+- El botón conserva su ancho y va atenuado (`Status bar` en inglés).
 
 ### Convivencia con usage-meter
 
@@ -68,7 +72,7 @@ El TTL se elige en la configuración del mod (`/config`, o `pluginConfigs` en lo
 El estado se muestra en una de dos vistas:
 
 - `panel` (por defecto): la fila con borde sobre el prompt, descrita en «Diseño».
-- `status`: no dibuja la fila; fija la línea de estado del mod (`$.ui.status`, una por plugin, bajo el prompt) con texto plano, sin el «se enfría en»: `🔥 Caché caliente · 47m 12s` o `⛄ Caché fría · la próxima petición reescribirá ~84k tokens`, en el idioma del panel (en inglés, `🔥 Hot cache · 47m 12s`).
+- `status`: no dibuja la fila; fija la línea de estado del mod (`$.ui.status`, una por plugin, bajo el prompt) con texto plano, sin el «se enfría en»: `🔥 Caché caliente · 47m 12s · ~84k en juego` o `⛄ Caché fría · la próxima petición reescribirá ~84k tokens`, en el idioma del panel (en inglés, `🔥 Hot cache · 47m 12s · ~84k at stake`). El «~84k en juego» son los tokens que se reescribirían si el caché se enfría; la línea no conoce el ancho, así que lo incluye siempre que los tokens se conocen (si no, queda `🔥 Caché caliente · 47m 12s`). En frío no cambia.
 
 La opción `display` (`/config`, o `pluginConfigs` en los ajustes) es solo la **vista inicial por defecto**: la que rige mientras no hayas elegido otra con `/cache-watch`. Qué vista rige al arrancar, por prioridad:
 
