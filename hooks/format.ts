@@ -81,6 +81,26 @@ export const countdown = (ms: number) => {
   return minutes > 0 ? `${minutes}m ${pad2(seconds)}s` : `${seconds}s`
 }
 
+/** The columns the panel's frame takes from the band: the border (2) and the padding (2). */
+export const FRAME_COLUMNS = 4
+
+/** The gap between the panel's text and its button. */
+export const BUTTON_GAP = 2
+
+/** The columns an emoji takes. */
+const EMOJI_COLUMNS = 2
+
+/**
+ * Whether the hot row, in full (`🔥 Caché caliente · se enfría en 47m 12s`), and the button fit in `columns` (the band's).
+ * The emoji counts as two columns, the rest by length; `value` is the countdown.
+ */
+export const fitsFull = (t: Texts, value: string, columns: number) => {
+  const text = EMOJI_COLUMNS + ` ${t.hot} · ${t.coolsIn} ${value}`.length
+  const button = BUTTON_GAP + `[=] ${t.toStatus}`.length
+
+  return text + button <= columns - FRAME_COLUMNS
+}
+
 /** `850`, `84k`, `1.5k`, `1M`: tokens in their shortest readable form. */
 export const compactTokens = (tokens: number) => {
   const trim = (n: number) => String(Math.round(n * 10) / 10)

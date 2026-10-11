@@ -47,7 +47,8 @@ Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las 
   | frío | azul claro `#93c5fd` | ⛄ |
 
   La frase «Caché fría» va en azul claro. El texto secundario va atenuado.
-- Si no cabe, el texto se corta al final (`…`); nunca pasa a otra línea. El botón conserva su ancho y va atenuado (`Status bar` en inglés).
+- **Poco ancho (solo terminal):** si el texto completo más el botón no caben en el ancho de la franja (menos 4 columnas de borde y relleno; el emoji cuenta como 2), la fila caliente omite «se enfría en» y queda `🔥 Caché caliente · 59m 03s`. En frío no hay «se enfría en» que omitir, y en la app de escritorio nunca se omite.
+- Si aun así no cabe, el texto se corta al final (`…`); nunca pasa a otra línea. El botón conserva su ancho y va atenuado (`Status bar` en inglés).
 
 ### Convivencia con usage-meter
 

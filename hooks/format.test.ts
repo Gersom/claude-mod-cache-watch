@@ -5,6 +5,7 @@ import {
   compactTokens,
   countdown,
   displayOf,
+  fitsFull,
   knownDisplay,
   levelOf,
   otherDisplay,
@@ -27,6 +28,28 @@ describe('ttlOf', () => {
     expect(ttlOf('2h')).toBe(HOUR)
     expect(ttlOf(30)).toBe(HOUR)
     expect(TTL_MS['5m']).toBe(300_000)
+  })
+})
+
+describe('fitsFull', () => {
+  // Spanish: emoji 2 + ` Caché caliente · se enfría en 59m 03s` 38 + gap 2 + `[=] Barra de estado` 19 = 61, plus the frame's 4.
+  test('counts the emoji as two columns, the button and the frame, and fits at the exact width', () => {
+    const es = textsOf('es')
+
+    expect(fitsFull(es, '59m 03s', 65)).toBe(true)
+    expect(fitsFull(es, '59m 03s', 64)).toBe(false)
+    expect(fitsFull(es, '59m 03s', 80)).toBe(true)
+    expect(fitsFull(es, '59m 03s', 40)).toBe(false)
+  })
+
+  test('a longer countdown or language needs more room', () => {
+    const en = textsOf('en')
+
+    // English: 2 + 29 + 16 + 4 = 51 columns, and 54 with `1h 00m 00s`.
+    expect(fitsFull(en, '59m 03s', 51)).toBe(true)
+    expect(fitsFull(en, '59m 03s', 50)).toBe(false)
+    expect(fitsFull(en, '1h 00m 00s', 54)).toBe(true)
+    expect(fitsFull(en, '1h 00m 00s', 53)).toBe(false)
   })
 })
 

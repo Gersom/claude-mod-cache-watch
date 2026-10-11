@@ -64,6 +64,49 @@ test('hot after a response: the time left, then cold once the TTL runs out', asy
   await ui.unmount()
 })
 
+/** The band of `BAND` with another width. */
+const narrow = (bodyColumns: number) => ({
+  ...BAND,
+  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns } as never
+})
+
+test('on the terminal with little width the hot row drops «cools in» and keeps the countdown', async ($, on) => {
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const small = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...narrow(40) })
+
+  expect(await small.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
+  expect(await small.find({ type: 'Text', text: /^1h 00m 00s$/ })).toBeDefined()
+  expect(await small.find({ type: 'Text', text: /se enfría en/ })).toBeUndefined()
+  expect(await small.find({ type: 'Button', key: 'status' })).toBeDefined()
+  await small.unmount()
+
+  const wide = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...narrow(80) })
+
+  expect(await wide.find({ type: 'Text', text: /se enfría en/ })).toBeDefined()
+  await wide.unmount()
+})
+
+test('on the desktop «cools in» stays with little width', async ($, on) => {
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'desktop', ...narrow(40) })
+
+  expect(await ui.find({ type: 'Text', text: /se enfría en/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^1h 00m 00s$/ })).toBeDefined()
+  await ui.unmount()
+})
+
 test('a 5-minute TTL cools after five minutes, not one hour', { options: { ttl: '5m' } }, async ($, on) => {
   on('ui.render', () => engineBand)
   on('settings.read', spanish)
