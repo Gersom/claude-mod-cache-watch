@@ -578,6 +578,64 @@ test('the switch before the first response draws and sets nothing', async ($, on
   expect(lines.at(-1)).toBe('🔥 Caché caliente · 1h 00m 00s')
 })
 
+test('the panel has a button to the status bar, on both surfaces, and the status view has none', async ($, on) => {
+  base(on)
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'cache-watch', surface, ...BAND })
+
+    expect(await ui.find({ type: 'Button', key: 'status', text: /Barra de estado/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeDefined()
+    await ui.unmount()
+  }
+
+  await cacheWatch($, 'status')
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(await ui.find({ type: 'Button', key: 'status' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('the panel button is in English when the settings name no language', async ($, on) => {
+  on('ui.render', () => engineBand)
+  on('session.measure', ($: unknown, e: { changed: unknown }) => ({ changed: e.changed }))
+  memory(on)
+  mock.clock(on, { now: Date.now() })
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(await ui.find({ type: 'Button', key: 'status', text: /Status bar/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('the panel button switches to the status bar: the line is set, the panel stops drawing, the view is saved', async ($, on) => {
+  const lines = watchStatus(on)
+  const { entries, clock } = base(on)
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+  await clock.advance(12 * MIN + 48_000)
+
+  const ui = await $.ui.mount({ plugin: 'cache-watch', surface: 'terminal', ...BAND })
+
+  expect(texts(lines)).toEqual([])
+
+  await ui.press({ key: 'status' })
+
+  expect(lines.at(-1)).toBe('🔥 Caché caliente · 47m 12s')
+  expect(await ui.find({ type: 'Text', text: /Caché caliente/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Button', key: 'status' })).toBeUndefined()
+  expect(entries.get('display')).toBe('status')
+
+  // Back to the panel only with the command, and the button is there again.
+  expect(await cacheWatch($, 'panel')).toEqual({ text: 'Caché: vista panel' })
+  expect(lines.at(-1)).toBeUndefined()
+  expect(await ui.find({ type: 'Button', key: 'status', text: /Barra de estado/ })).toBeDefined()
+  await ui.unmount()
+})
+
 test('the chosen view is saved, and a new session starts from it', async ($, on) => {
   const { entries } = base(on)
 

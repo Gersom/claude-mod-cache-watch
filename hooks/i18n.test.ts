@@ -56,6 +56,11 @@ describe('texts', () => {
     expect(en.viewIs('status')).toBe('Cache: status bar view')
   })
 
+  test('the panel button that goes to the status line is named in each language', () => {
+    expect(es.toStatus).toBe('Barra de estado')
+    expect(en.toStatus).toBe('Status bar')
+  })
+
   test('the command has a description and a usage in each language, naming both views', () => {
     for (const t of [es, en]) {
       expect(t.commandDescription).not.toBe('')

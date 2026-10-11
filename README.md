@@ -23,16 +23,16 @@ Con la franja se sabe cuánto falta para que se enfríe y cuánto se reescribir�
 
 ## Diseño
 
-Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las superficies (terminal y app de escritorio):
+Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las superficies (terminal y app de escritorio), y a la derecha, dentro del mismo borde, el botón `[=] Barra de estado` que pasa a la vista `status`:
 
 ```
-╭──────────────────────────────────────────────────────────────╮
-│ 🔥 Caché caliente · se enfría en 47m 12s                     │
-╰──────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────╮
+│ 🔥 Caché caliente · se enfría en 47m 12s                       [=] Barra de estado │
+╰────────────────────────────────────────────────────────────────────────────────────╯
 
-╭──────────────────────────────────────────────────────────────╮
-│ ⛄ Caché fría · la próxima petición reescribirá ~84k tokens  │
-╰──────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────╮
+│ ⛄ Caché fría · la próxima petición reescribirá ~84k tokens    [=] Barra de estado │
+╰────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 - **Calor:** según la parte del TTL que queda, toda la frase «Caché caliente» y la cuenta pasan por cinco colores, con su emoji. El emoji no se puede colorear; cambia por etapa:
@@ -47,7 +47,7 @@ Una sola línea. Lleva un borde redondeado gris oscuro (`#4b5563`) en todas las 
   | frío | azul claro `#93c5fd` | ⛄ |
 
   La frase «Caché fría» va en azul claro. El texto secundario va atenuado.
-- Si no cabe, la línea se corta al final (`…`); nunca pasa a otra.
+- Si no cabe, el texto se corta al final (`…`); nunca pasa a otra línea. El botón conserva su ancho y va atenuado (`Status bar` en inglés).
 
 ### Convivencia con usage-meter
 
@@ -94,7 +94,7 @@ Cambia de vista en vivo, sin recargar el mod:
 
 - **Al instante:** al pasar a `panel` se borra la línea de estado y aparece la fila; al pasar a `status` la fila deja de dibujarse y la línea se fija en ese momento, sin esperar al siguiente tic del temporizador. Antes de la primera respuesta de la sesión no hay nada que mostrar en ninguna de las dos.
 - **Respuesta:** una línea corta en el idioma del panel (español o inglés, ver «Idioma»): `Caché: vista panel` / `Caché: vista barra de estado`, o `Cache: panel view` / `Cache: status bar view`. Con un argumento desconocido: `Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.`
-- **Solo comandos:** el panel no lleva botones; la vista se cambia únicamente con el comando.
+- **Botón en el panel:** la fila del panel lleva a la derecha, dentro del borde, el botón `[=] Barra de estado` (`[=] Status bar`), que pasa a la vista `status` igual que `/cache-watch status` (misma línea de estado al instante y misma vista guardada). La vista `status` no tiene botones: la línea de estado es texto plano. De vuelta a `panel` solo con el comando.
 - **Se recuerda entre sesiones:** la última vista elegida se guarda en `$.store` (el almacén propio del mod, un JSON bajo el directorio de configuración de Claude Code, clave `display`) y se restaura al arrancar, por encima de la opción `display` (ver «Vistas y opción `display`»). Si el almacén no se puede escribir, la vista cambia igual en la sesión pero no se recuerda. Un valor guardado que el mod no reconoce se ignora.
 - **Cómo se aplica:** la vista vigente vive en un estado de la sesión (`$.state`, clave `display`). El hook `ui.render` lo lee, así que un cambio redibuja la franja solo: en `status` no dibuja nada y deja pasar lo de los demás (`next(e)`); en `panel` dibuja la fila. La línea de estado se fija o se borra al mismo tiempo.
 - El comando se registra al empezar la sesión (`session.start`), con su descripción en el idioma del panel, y se atiende con un hook `command.run`.

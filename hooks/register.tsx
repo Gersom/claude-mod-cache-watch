@@ -118,6 +118,23 @@ const refreshStatus = async ($: EngineInterface, ttlMs: number, initial: Display
   setStatus($, statusText(statusParts(status, t, await read($, tokens))))
 }
 
+/** Switches to the view: the atom, the store and the status line, as `/cache-watch` and the panel's button do. */
+const setView = async ($: EngineInterface, view: Display, ttlMs: number, initial: Display) => {
+  const time = await $.clock.now()
+
+  await update($, chosen, () => view)
+
+  try {
+    await $.store.set(STORE_KEY, view)
+  } catch {
+    // Not saved: the view still changes for this session.
+  }
+
+  // The line shows (or goes) at once, with the time as it is now, not as the last tick left it.
+  await update($, now, () => time)
+  await refreshStatus($, ttlMs, initial)
+}
+
 const start = ($: EngineInterface, ttlMs: number, initial: Display) => {
   if (ticker !== null) return
 
@@ -175,19 +192,8 @@ export const register: Register = (on, options) => {
     if (arg !== '' && asked === undefined) return { text: t.usage }
 
     const view = asked ?? otherDisplay(await viewOf($, initial))
-    const time = await $.clock.now()
 
-    await update($, chosen, () => view)
-
-    try {
-      await $.store.set(STORE_KEY, view)
-    } catch {
-      // Not saved: the view still changes for this session.
-    }
-
-    // The line shows (or goes) at once, with the time as it is now, not as the last tick left it.
-    await update($, now, () => time)
-    await refreshStatus($, ttlMs, initial)
+    await setView($, view, ttlMs, initial)
 
     return { text: t.viewIs(view) }
   })
@@ -241,33 +247,41 @@ export const register: Register = (on, options) => {
 
     const t = textsOf((await read($, langMode)) ?? DEFAULT_LANG)
     const known = await read($, tokens)
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
     const color = status.kind === 'hot' ? COLORS[status.level] : COLORS.cold
     const frame = { borderStyle: 'round' as const, borderColor: BORDER_COLOR }
 
     const row = (
       <Box {...frame} paddingX={1}>
-        <Text wrap="truncate-end">
-          <Text>{`${EMOJI[status.kind === 'hot' ? status.level : 'cold']} `}</Text>
-          {status.kind === 'hot' ? (
-            <Text>
-              <Text bold color={color}>
-                {t.hot}
+        <Box justifyContent="space-between">
+          <Text wrap="truncate-end">
+            <Text>{`${EMOJI[status.kind === 'hot' ? status.level : 'cold']} `}</Text>
+            {status.kind === 'hot' ? (
+              <Text>
+                <Text bold color={color}>
+                  {t.hot}
+                </Text>
+                <Text dimColor>{` · ${t.coolsIn} `}</Text>
+                <Text bold color={color}>
+                  {countdown(status.leftMs)}
+                </Text>
               </Text>
-              <Text dimColor>{` · ${t.coolsIn} `}</Text>
-              <Text bold color={color}>
-                {countdown(status.leftMs)}
+            ) : (
+              <Text>
+                <Text bold color={color}>
+                  {t.cold}
+                </Text>
+                <Text dimColor>{` · ${t.rewrite(known === null ? null : compactTokens(known))}`}</Text>
               </Text>
-            </Text>
-          ) : (
-            <Text>
-              <Text bold color={color}>
-                {t.cold}
-              </Text>
-              <Text dimColor>{` · ${t.rewrite(known === null ? null : compactTokens(known))}`}</Text>
-            </Text>
-          )}
-        </Text>
+            )}
+          </Text>
+          {/* The way to the status line; back to the panel only with the command. */}
+          <Box flexShrink={0} marginLeft={2}>
+            <Button key="status" plain dimColor onPress={() => void setView($, 'status', ttlMs, initial)}>
+              {`[=] ${t.toStatus}`}
+            </Button>
+          </Box>
+        </Box>
       </Box>
     )
 

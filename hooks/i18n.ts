@@ -17,6 +17,8 @@ export type Texts = {
   viewIs: (display: 'panel' | 'status') => string
   /** What `/cache-watch` answers to an argument it does not know. */
   usage: string
+  /** `Barra de estado` (`Status bar`): the panel's button that switches to the status line. */
+  toStatus: string
 }
 
 /** The language the panel speaks when settings.language names none it knows. */
@@ -34,7 +36,8 @@ export const TEXTS: Record<Lang, Texts> = {
         : `la próxima petición reescribirá ~${tokens} tokens`,
     commandDescription: 'Cambia la vista del caché entre el panel y la barra de estado.',
     viewIs: display => `Caché: vista ${display === 'panel' ? 'panel' : 'barra de estado'}`,
-    usage: 'Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.'
+    usage: 'Uso: /cache-watch [panel|status]. Sin argumento, alterna la vista.',
+    toStatus: 'Barra de estado'
   },
   en: {
     lang: 'en',
@@ -47,7 +50,8 @@ export const TEXTS: Record<Lang, Texts> = {
         : `the next request will rewrite ~${tokens} tokens`,
     commandDescription: 'Switch the cache view between the panel and the status bar.',
     viewIs: display => `Cache: ${display === 'panel' ? 'panel' : 'status bar'} view`,
-    usage: 'Usage: /cache-watch [panel|status]. With no argument, it switches the view.'
+    usage: 'Usage: /cache-watch [panel|status]. With no argument, it switches the view.',
+    toStatus: 'Status bar'
   }
 }
 
