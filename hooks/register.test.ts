@@ -244,6 +244,33 @@ test('lives beside another hook of the band: keeps what is below and adds its ro
   await ui.unmount()
 })
 
+test('leaves a blank line before the band below when the band has room, and none when it is short', { plugins: [other] }, async ($, on) => {
+  on('ui.render', () => engineBand)
+  on('settings.read', spanish)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  mock.clock(on, { now: Date.now() })
+
+  await $.session.measure({ context: window, rateLimits: [], changed: ['context'] })
+
+  const gapOf = async (maxRows: number) => {
+    const ui = await $.ui.mount({
+      plugin: 'cache-watch',
+      surface: 'terminal',
+      ...BAND,
+      props: { hasSurvey: false, isWorking: false, maxRows, bodyColumns: 80 } as never
+    })
+    const stack = await ui.find({ type: 'Box', text: /OTHER BAND/ })
+    const gap = (stack?.children?.[0] as { props?: { marginBottom?: number } } | undefined)?.props?.marginBottom
+
+    await ui.unmount()
+
+    return gap
+  }
+
+  expect(await gapOf(20)).toBe(1)
+  expect(await gapOf(10)).toBe(0)
+})
+
 /** Observes `$.ui.status`: every text (or `undefined`, the clear) the mod sets, in order. */
 const watchStatus = (on: any) => {
   const lines: (string | undefined)[] = []

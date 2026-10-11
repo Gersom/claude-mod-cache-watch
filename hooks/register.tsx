@@ -20,6 +20,9 @@ import {
 import { DEFAULT_LANG, detectLang, textsOf } from './i18n'
 
 const BORDER_COLOR = '#4b5563'
+
+/** Rows the band needs to leave a blank line between this row and the one below (usage-meter's full view plus this row and the gap); in a shorter band they stay touching. */
+const GAP_MIN_ROWS = 14
 const TICK_MS = 1000
 /** The key of `$.store` that keeps the view `/cache-watch` chose, between sessions. */
 const STORE_KEY = 'display'
@@ -274,6 +277,15 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
-    return isEmpty(below) ? row : <Box flexDirection="column">{row}{below}</Box>
+    if (isEmpty(below)) return row
+
+    return (
+      <Box flexDirection="column">
+        <Box flexDirection="column" marginBottom={e.props.maxRows >= GAP_MIN_ROWS ? 1 : 0}>
+          {row}
+        </Box>
+        {below}
+      </Box>
+    )
   })
 }
