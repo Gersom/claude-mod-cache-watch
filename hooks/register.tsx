@@ -236,7 +236,7 @@ export const register: Register = (on, options) => {
     // The `status` view draws nothing here: the line is the mod's status. The atom is read while drawing, so a switch redraws.
     if (((await read($, chosen)) ?? initial) !== 'panel') return next(e)
 
-    // What other hooks draw in the band (usage-meter's) stays; this row goes above it.
+    // What other hooks draw in the band (usage-meter's) stays; this row goes under it, so the repo's mods end up together at the prompt.
     const below = await next(e)
     const at = await read($, lastAt)
 
@@ -297,9 +297,9 @@ export const register: Register = (on, options) => {
     // The desktop page draws the two bordered boxes touching; a blank spacer row parts them. The terminal's band is short on rows and already reads well.
     return (
       <Box flexDirection="column">
-        {row}
-        {e.surface === 'desktop' ? <Box height={1} /> : null}
         {below}
+        {e.surface === 'desktop' ? <Box height={1} /> : null}
+        {row}
       </Box>
     )
   })
